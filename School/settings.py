@@ -88,12 +88,12 @@ INSTALLED_APPS = [
 MIDDLEWARE = [
     "django.middleware.security.SecurityMiddleware",
     "django.contrib.sessions.middleware.SessionMiddleware",
+    "corsheaders.middleware.CorsMiddleware", 
     "django.middleware.common.CommonMiddleware",
     "django.middleware.csrf.CsrfViewMiddleware",
     "django.contrib.auth.middleware.AuthenticationMiddleware",
     "django.contrib.messages.middleware.MessageMiddleware",
-    "django.middleware.clickjacking.XFrameOptionsMiddleware",
-    'corsheaders.middleware.CorsMiddleware',
+    "django.middleware.clickjacking.XFrameOptionsMiddleware",  
     'apps.users.utils.authMiddleware.AuthTokenMiddleWare',
 ]
 
@@ -173,16 +173,14 @@ STATIC_URL = "static/"
 
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 
-# CORS_ALLOWED_ORIGINS = [
-#      "http://localhost:3000",
-#      "http://localhost:3001",
-#      "http://localhost:3002",
-# ]
+
 cors_origins = os.getenv("CORS_ALLOWED_ORIGINS", "")
 if cors_origins:
     CORS_ALLOWED_ORIGINS = cors_origins.split(',')
 else:
     CORS_ALLOWED_ORIGINS = []
+    
+
     
 CORS_ALLOW_METHODS = [
     'GET',

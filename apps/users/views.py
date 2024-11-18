@@ -47,20 +47,20 @@ class LoginAPIView(APIView):
                     'role': user.role,
                 }
             })
-            # response.set_cookie(
-            #     key='accessToken',
-            #     value=tokens['access'],
-            #     httponly=True,
-            #     secure=False,  
-            #     samesite='Strict'
-            # )
-            # response.set_cookie(
-            #     key='refreshToken',
-            #     value=tokens['access'],
-            #     httponly=True,
-            #     secure=False,
-            #     samesite='Strict'
-            # )
+            response.set_cookie(
+                key='accessToken',
+                value=tokens['access'],
+                httponly=True,
+                secure=True,  
+                samesite='Strict'
+            )
+            response.set_cookie(
+                key='refreshToken',
+                value=tokens['access'],
+                httponly=True,
+                secure=True,
+                samesite='Strict'
+            )
 
             return response
 
