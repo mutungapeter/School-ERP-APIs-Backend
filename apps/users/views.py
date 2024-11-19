@@ -81,7 +81,7 @@ class UserAPIView(APIView):
             except User.DoesNotExist:
                 return Response({"error": "User not found."}, status=status.HTTP_404_NOT_FOUND)
         else:
-            users = User.objects.all()
+            users = User.objects.filter(role__in=["Admin", "Principal"])
 
             page = request.query_params.get('page')
             page_size = request.query_params.get('page_size')
