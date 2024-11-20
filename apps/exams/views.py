@@ -27,7 +27,7 @@ class MarksAPIView(APIView):
             return Response(status=status.HTTP_401_UNAUTHORIZED)
         
         if request.user.role not in ['Admin', 'Principal']:
-            return Response({"error": "You do not have permission to view  students records."}, status=status.HTTP_403_FORBIDDEN)
+            return Response({"error": "You do not have permission to view  marks records."}, status=status.HTTP_403_FORBIDDEN)
 
         if pk:
             try:

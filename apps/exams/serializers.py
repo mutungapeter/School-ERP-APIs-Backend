@@ -1,7 +1,7 @@
 from rest_framework import serializers
 from apps.exams.models import MarksData
 from django.db import IntegrityError
-from apps.main.serializers import ClassLevelSerializer, TermSerializer
+from apps.main.serializers import ClassLevelSerializer, TermSerializer,TermListSerializer
 from apps.students.serializers import StudentListSerializer,AllStudentsFieldsSerializer, StudentSubjectSerializer
 
 class MarkListSerializer(serializers.ModelSerializer):
@@ -11,7 +11,7 @@ class MarkListSerializer(serializers.ModelSerializer):
     remarks = serializers.SerializerMethodField()
     student =  AllStudentsFieldsSerializer()
     student_subject = StudentSubjectSerializer()
-    term = TermSerializer()
+    term = TermListSerializer()
     
     class Meta:
         model = MarksData
