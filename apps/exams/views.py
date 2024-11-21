@@ -317,17 +317,14 @@ class ReportFormAPIView(APIView):
             else:
                 print("Debug: class_level_id is None.")
         except ValueError:
-            return Response(
-                {"error": "class_level must be an integer."},
-                status=status.HTTP_400_BAD_REQUEST
-            )
+            print("Debug: class_level_id is not integer.")
 
        
         students_data = []
         
         if not admission_number and not class_level_id:
             return Response(
-                {"error": "Please provide either an admission number or a class level to retrieve report data."},
+                {"error": "Please provide either an admission number and term or a class level and term to retrieve report data."},
                 status=status.HTTP_400_BAD_REQUEST
             )
         if admission_number and term_id:
