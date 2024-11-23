@@ -31,7 +31,7 @@ class SubjectAPIView(APIView):
             else:
                 teacher = Teacher.objects.get(user=request.user)
                 subjects = Subject.objects.filter(teachersubject__teacher=teacher).distinct()
-
+            subjects = subjects.order_by('-created_at')
             page = request.query_params.get('page')
             page_size = request.query_params.get('page_size')
             
@@ -100,7 +100,7 @@ class SubjectCategoryAPIView(APIView):
             except SubjectCategory.DoesNotExist:
                return Response({"error": "Subject Category not found."}, status=status.HTTP_404_NOT_FOUND)
         else:
-            subject_categories = SubjectCategory.objects.all()
+            subject_categories = SubjectCategory.objects.all().order_by('-created_at')
             
             
             page = request.query_params.get('page')
@@ -155,7 +155,7 @@ class FormLevelAPIView(APIView):
             except FormLevel.DoesNotExist:
                return Response({"error": "Subject Category not found."}, status=status.HTTP_404_NOT_FOUND)
         else:
-            form_levels = FormLevel.objects.all()
+            form_levels = FormLevel.objects.all().order_by('-created_at')
             
             
             page = request.query_params.get('page')
@@ -221,7 +221,7 @@ class StreamAPIView(APIView):
             except Stream.DoesNotExist:
                return Response({"error": "Stream not found."}, status=status.HTTP_404_NOT_FOUND)
         else:
-            streams = Stream.objects.all()
+            streams = Stream.objects.all().order_by('created_at')
             
             
             page = request.query_params.get('page')
@@ -295,7 +295,7 @@ class ClassLevelAPIView(APIView):
             else:
                 teacher = Teacher.objects.get(user=request.user)
                 class_levels = ClassLevel.objects.filter(teachersubject__teacher=teacher).distinct()
-
+            class_levels=class_levels.order_by('-created_at')
             page = request.query_params.get('page')
             page_size = request.query_params.get('page_size')
             
@@ -405,7 +405,7 @@ class GradingConfigAPIView(APIView):
             except GradingConfig.DoesNotExist:
                 return Response({"error": "Grading config  does not exist."}, status=status.HTTP_404_NOT_FOUND)
         else:
-            grading_configs = GradingConfig.objects.all()
+            grading_configs = GradingConfig.objects.all().order_by('-created_at')
             page = request.query_params.get('page')
             page_size = request.query_params.get('page_size')
             
@@ -469,7 +469,7 @@ class MeanGradeConfigAPIView(APIView):
             except GradingConfig.DoesNotExist:
                 return Response({"error": "Grading config  does not exist."}, status=status.HTTP_404_NOT_FOUND)
         else:
-            mean_grade_configs = MeanGradeConfig.objects.all()
+            mean_grade_configs = MeanGradeConfig.objects.all().order_by('-created_at')
             page = request.query_params.get('page')
             page_size = request.query_params.get('page_size')
             
@@ -532,7 +532,7 @@ class TermsAPIView(APIView):
                return Response({"error": "Term not found."}, status=status.HTTP_404_NOT_FOUND)
         else:
            
-            terms = Term.objects.all()
+            terms = Term.objects.all().order_by('-created_at')
             page = request.query_params.get('page')
             page_size = request.query_params.get('page_size')
             

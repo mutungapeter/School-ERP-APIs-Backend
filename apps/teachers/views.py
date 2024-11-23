@@ -52,7 +52,8 @@ class TeacherAPIView(APIView):
                 teachers = Teacher.objects.filter(id=teacher_id)
             else:
                 teachers = Teacher.objects.all()
-
+                
+            teachers = teachers.order_by('-created_at')
             page = request.query_params.get('page')
             page_size = request.query_params.get('page_size')
 

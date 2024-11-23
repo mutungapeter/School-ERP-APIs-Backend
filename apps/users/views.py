@@ -85,7 +85,7 @@ class UserAPIView(APIView):
 
             page = request.query_params.get('page')
             page_size = request.query_params.get('page_size')
-
+            users = users.order_by('-created_at')
             if page or page_size:
                 paginator = DataPagination()
                 paginated_users = paginator.paginate_queryset(users, request)

@@ -1,9 +1,9 @@
 from django.db import models
-from apps.main.models import ClassLevel, Subject
+from apps.main.models import ClassLevel, Subject, AbstractBaseModel
 from apps.users.models import User
 # Create your models here.
 
-class Teacher(models.Model):
+class Teacher(AbstractBaseModel):
     GENDER_CHOICES = [
     ('Male', 'Male'),
     ('Female', 'Female'),

@@ -313,7 +313,7 @@ class ReportFormAPIView(APIView):
         try:
             if class_level_id is not None:
                 class_level_id = int(class_level_id)
-                print(f"Debug: class_level_id = {class_level_id}")
+                # print(f"Debug: class_level_id = {class_level_id}")
             else:
                 print("Debug: class_level_id is None.")
         except ValueError:
@@ -390,7 +390,7 @@ class ReportFormAPIView(APIView):
             for x in Term.objects.filter(calendar_year=term.calendar_year):
                 try:
                     m = MarksData.calculate_mean_grade(student, term=x.id)
-                    print("m", m)
+                    # print("m", m)
                     term_data.append({"term": x.term, "mean_marks": m["mean_marks"]})
                 except Exception as e:
                     term_data.append({
@@ -435,7 +435,7 @@ class ReportFormAPIView(APIView):
                 for x in Term.objects.filter(calendar_year=term.calendar_year):
                     try:
                         m = MarksData.calculate_mean_grade(student, term=x.id)
-                        print("m", m)
+                        # print("m", m)
                         term_data.append({"term": x.term, "mean_marks": m["mean_marks"]})
                     except Exception as e:
                         term_data.append({

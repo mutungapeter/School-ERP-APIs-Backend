@@ -70,7 +70,7 @@ class StudentAPIView(APIView):
                     {"error": "No students found in this class."},
                     status=status.HTTP_404_NOT_FOUND
                 )
-         
+        queryset = queryset.order_by('-created_at')
         if page or page_size:
             paginator = DataPagination()
             paginated_students = paginator.paginate_queryset(queryset, request)

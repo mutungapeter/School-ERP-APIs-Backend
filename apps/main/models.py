@@ -81,7 +81,7 @@ class Stream(AbstractBaseModel):
     
     def __str__(self):
         return self.name
-class ClassLevel(models.Model):
+class ClassLevel(AbstractBaseModel):
     form_level = models.ForeignKey(FormLevel, on_delete=models.CASCADE)
     stream = models.ForeignKey(Stream, on_delete=models.SET_NULL, null=True, blank=True)
     
