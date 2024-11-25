@@ -269,6 +269,7 @@ class FilterMarksDataView(APIView):
                 {"error": "You must provide a term when using Class and subject."},
                 status=status.HTTP_400_BAD_REQUEST
             )
+        
         student_exists = None
         term_exists = None
         if admission_number:
@@ -343,7 +344,7 @@ class FilterMarksDataView(APIView):
                         )
                     if subject_id:
                         return Response(
-                            {"error": f"Student with admission number {admission_number} has no marks for the subject '{student_subject_exists.subject.subject_name}' for term {term.term}-{term.calendar_year}."},
+                            {"error": f"Student with admission number {admission_number} has no marks for the subject '{student_subject_exists.subject.subject_name}' for term {term_exists.term}-{term_exists.calendar_year}."},
                             status=status.HTTP_404_NOT_FOUND
                         )
                     if class_level_id:
@@ -351,11 +352,31 @@ class FilterMarksDataView(APIView):
                             {"error": f"Student with admission number {admission_number} has no marks for class level {class_exists.form_level.name}{f'({class_exists.stream.name})' if class_exists.stream else ''} for term {term_exists.term}-{term_exists.calendar_year}."},
                             status=status.HTTP_404_NOT_FOUND
                         )
-                return Response(
-                    {"error": f"Student with admission number {admission_number} has no marks for term {term_exists.term}-{term_exists.calendar_year}."},
-                    status=status.HTTP_404_NOT_FOUND
-                )
+                # elif admission_number and subject_id and term_id:
+                #         return Response(
+                #         {"error": f"Student with admission number {admission_number} has no marks for subject '{student_subject_exists.subject.subject_name}'for term {term_exists.term}-{term_exists.calendar_year}."},
+                #         status=status.HTTP_404_NOT_FOUND
+                #     )   
+                else: 
+                    return Response(
+                        {"error": f"Student with admission number {admission_number} has no marks for term {term_exists.term}-{term_exists.calendar_year}."},
+                        status=status.HTTP_404_NOT_FOUND
+                    )
+        elif admission_number and subject_id and term_id and request.user.role in ['Admin', 'Principal', 'Teacher']:
+            queryset = MarksData.objects.filter(
+                student_subject__student__admission_number=student_exists.admission_number,
+                student_subject__subject__id=subject_id,
+                term_id=term_id,
                 
+            )
+            marks_exists = queryset.exists()
+            if not marks_exists:
+                 if admission_number and subject_id and term_id:
+                        return Response(
+                        {"error": f"Student with admission number {admission_number} has no marks for subject '{student_subject_exists.subject.subject_name}'for term {term_exists.term}-{term_exists.calendar_year}."},
+                        status=status.HTTP_404_NOT_FOUND
+                    )  
+            
                 
         elif subject_id and class_level_id and term_id:
             queryset = MarksData.objects.filter(
