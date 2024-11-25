@@ -7,7 +7,7 @@ from django.db.models import Q
 from rest_framework.renderers import JSONRenderer, BrowsableAPIRenderer
 from rest_framework.permissions import IsAuthenticated
 from django.shortcuts import get_object_or_404
-from apps.main.models import Subject, FormLevel, Term
+from apps.main.models import Subject, FormLevel,ClassLevel, Term
 from apps.utils import DataPagination, assign_all_subjects, assign_core_subjects, assign_electives,retain_current_student_subjects
 from apps.students.models import PromotionRecord,GraduationRecord, Student, StudentSubject
 from apps.students.serializers import PromoteStudentsSerializer, GraduationRecordsSerializer, PromotionRecordsSerializer ,PromoteStudentsToAlumniSerializer, StudentListSerializer, StudentSerializer, StudentSubjectSerializer
@@ -157,22 +157,85 @@ class FilterStudentsAPIView(APIView):
         subject_id = request.query_params.get('subject_id')
         class_level_id = request.query_params.get('class_level_id')
         user = request.user
+        
         queryset = None
-        if admission_number and user.role in ['Admin', 'Principal']:
-            student = Student.objects.filter(admission_number=admission_number).first()
-            if not student:
-                return Response({"error": "No student found with that admission number."}, status=status.HTTP_404_NOT_FOUND)
+        student_exists = None
+        if admission_number:
+            student_exists = Student.objects.filter(admission_number=admission_number).first()
+            if not student_exists:
+                return Response(
+                    {"error": f"Student with admission number {admission_number} not found."},
+                    status=status.HTTP_404_NOT_FOUND
+                )
+        class_exists = None
+        if class_level_id:
+            class_exists = ClassLevel.objects.filter(id=class_level_id).first()
+            if not class_exists:
+                return Response(
+                    {"error": "Class not found."},
+                    status=status.HTTP_404_NOT_FOUND
+                )
+        student_subject_exists = None
+        if subject_id:
+            student_subject_exists = StudentSubject.objects.filter(id=subject_id).first()
+            if not student_subject_exists:
+                return Response(
+                    {"error": f"Subject  not found."},
+                    status=status.HTTP_404_NOT_FOUND
+                )
 
-            queryset = StudentSubject.objects.filter(student=student).select_related('student', 'subject')
+        if admission_number and user.role in ['Admin', 'Principal']:
+            if not student_exists:
+                return Response(
+                    {"error": f"Student with admission number {admission_number} does not exist."},
+                    status=status.HTTP_404_NOT_FOUND
+                )
+            
+            queryset = StudentSubject.objects.filter(student=student_exists).select_related('student', 'subject')
+            
             if subject_id and class_level_id:
                 queryset = queryset.filter(
                     student__admission_number=admission_number,
                     subject_id=subject_id,
                     student__class_level_id=class_level_id
                 )
+            elif subject_id:
+                queryset = StudentSubject.objects.filter(
+                    student__admission_number=admission_number,
+                    subject_id=subject_id
+                )
+            elif class_level_id:
+                queryset = StudentSubject.objects.filter(
+                    student__admission_number=admission_number,
+                    student__class_level_id=class_level_id
+                )
+            student_with_subject_exists = queryset.exists()
+            if not student_with_subject_exists:
+                if admission_number and subject_id and class_level_id:
+                    return Response({
+                        "error": f"No student found with that admission number {admission_number} has no the given subject {student_subject_exists.subject.subject_name} in the selected class {class_exists.form_level.name}{f'({class_exists.stream.name})' if class_exists.stream else ''}. "}, status=status.HTTP_404_NOT_FOUND
+                    )
+                if admission_number and subject_id:
+                    return Response({
+                        "error": f"No student found with that admission number  {admission_number} has the given subject {student_subject_exists.subject.subject_name}."}, status=status.HTTP_404_NOT_FOUND
+                    )
+                if admission_number and class_level_id:
+                    return Response({
+                        "error": f"student with admission number  {admission_number} does not belong to  the selected class {class_exists.form_level.name}{f'({class_exists.stream.name})' if class_exists.stream else ''} ."}, status=status.HTTP_404_NOT_FOUND
+                    )
+                if admission_number:
+                    return Response({
+                                "error": f"No student found with that admission number {admission_number}.",
+                            }, status=status.HTTP_404_NOT_FOUND
+                            )
 
         elif admission_number and user.role not in ['Admin', 'Principal']:
-            if not subject_id or not class_level_id:
+            if not student_exists:
+                return Response(
+                    {"error": f"Student with admission number {admission_number} does not exist."},
+                    status=status.HTTP_404_NOT_FOUND
+                )
+            if admission_number and not subject_id or not class_level_id:
                 return Response(
                     {"error": "You must provide both subject and class when using admission_number.Unless You are Admin or the Principal"},
                     status=status.HTTP_400_BAD_REQUEST
@@ -182,12 +245,51 @@ class FilterStudentsAPIView(APIView):
                 subject_id=subject_id,
                 student__class_level_id=class_level_id
             ).select_related('student', 'subject')
+            if subject_id and class_level_id:
+                    queryset = StudentSubject.objects.filter(
+                    student__admission_number=admission_number,
+                    subject_id=subject_id,
+                    student__class_level_id=class_level_id
+                )
+            elif subject_id:
+                queryset = StudentSubject.objects.filter(
+                    student__admission_number=admission_number,
+                    subject_id=subject_id
+                )
+            elif class_level_id:
+                queryset = StudentSubject.objects.filter(
+                    student__admission_number=admission_number,
+                    student__class_level_id=class_level_id
+                )
+            student_with_subject_exists = queryset.exists()
+            if not student_with_subject_exists:
+                if admission_number:
+                    return Response({
+                        "error": f"No student found with that admission number {admission_number}.",
+                    }, status=status.HTTP_404_NOT_FOUND
+                    )
+                if admission_number and subject_id and class_level_id:
+                    return Response({
+                        "error": f"No student found with that admission number {admission_number} has the given subject in the selected class {class_exists.form_level.name}{f'({class_exists.stream.name})' if class_exists.stream else ''}."}, status=status.HTTP_404_NOT_FOUND
+                    )
+                if admission_number and subject_id:
+                    return Response({
+                        "error": f"No student found with that admission number  {admission_number} has the given subject {student_subject_exists.subject.subject_name}."}, status=status.HTTP_404_NOT_FOUND
+                    )
+                
 
         elif subject_id and class_level_id:
             queryset = StudentSubject.objects.filter(
                 subject_id=subject_id,
                 student__class_level_id=class_level_id
             ).select_related('student', 'subject')
+            students_exists = queryset.exists()
+            if not students_exists:
+                if subject_id and class_level_id:
+                    return Response({
+                        "error": f"No students found within that class {class_exists.form_level.name}{f'({class_exists.stream.name})' if class_exists.stream else ''} and subject {student_subject_exists.subject.subject_name}."},
+                                    status=status.HTTP_404_NOT_FOUND
+                                    )    
 
         else:
             return Response(
