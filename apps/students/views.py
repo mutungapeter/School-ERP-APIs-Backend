@@ -160,7 +160,7 @@ class StudentAPIView(APIView):
             return Response({"error": "You do not have permission to delete students."}, status=status.HTTP_403_FORBIDDEN)
         print(request.data)
          
-        student_ids = request.data.get('student_ids', [])
+        student_ids = request.data if isinstance(request.data, list) else request.data.get('student_ids', [])
         print("student_ids;", student_ids)
 
             
