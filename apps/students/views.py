@@ -12,6 +12,8 @@ from apps.utils import DataPagination, assign_all_subjects, assign_core_subjects
 from apps.students.models import PromotionRecord,GraduationRecord, Student, StudentSubject
 from apps.students.serializers import PromoteStudentsSerializer, GraduationRecordsSerializer, PromotionRecordsSerializer ,PromoteStudentsToAlumniSerializer, StudentListSerializer, StudentSerializer, StudentSubjectSerializer
 from django.db import transaction
+import pandas as pd
+from rest_framework.parsers import MultiPartParser
 
 class StudentAPIView(APIView):
     renderer_classes = [JSONRenderer, BrowsableAPIRenderer]
@@ -135,21 +137,175 @@ class StudentAPIView(APIView):
             return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
         
 
-    def delete(self, request, pk=None):
-        if not request.user.is_authenticated:
-            return Response(status=status.HTTP_401_UNAUTHORIZED)
+    # def delete(self, request, pk=None):
+        # if not request.user.is_authenticated:
+        #     return Response(status=status.HTTP_401_UNAUTHORIZED)
 
+        # if request.user.role not in ['Admin', 'Principal']:
+        #     return Response({"error": "You do not have permission to delete a student."}, status=status.HTTP_403_FORBIDDEN)
+
+        # try:
+        #     student = Student.objects.get(pk=pk)
+        # except Student.DoesNotExist:
+        #     return Response({"error": "Student not found."}, status=status.HTTP_404_NOT_FOUND)
+        # student.delete()
+
+        # return Response({"message": "Student deleted successfully."}, status=status.HTTP_204_NO_CONTENT)
+    def delete(self, request):
+        if not request.user.is_authenticated:
+                return Response(status=status.HTTP_401_UNAUTHORIZED)
+
+            
         if request.user.role not in ['Admin', 'Principal']:
-            return Response({"error": "You do not have permission to delete a student."}, status=status.HTTP_403_FORBIDDEN)
+            return Response({"error": "You do not have permission to delete students."}, status=status.HTTP_403_FORBIDDEN)
+        print(request.data)
+         
+        student_ids = request.data.get('student_ids', [])
+        print("student_ids;", student_ids)
+
+            
+        if not student_ids:
+            return Response({"error": "No student IDs provided."}, status=status.HTTP_400_BAD_REQUEST)
+
+            
+        students = Student.objects.filter(id__in=student_ids)
+        student_count = students.count()
+        if student_count == 0:
+            return Response({"error": "No students found with the provided IDs."}, status=status.HTTP_404_NOT_FOUND)
+
+        # Delete the students
+        students.delete()
+
+        return Response({"message": f"{student_count} students deleted successfully."}, status=status.HTTP_200_OK)
+
+class UploadStudentsAPIView(APIView):
+    renderer_classes = [JSONRenderer, BrowsableAPIRenderer]
+    permission_classes = [IsAuthenticated]
+    parser_classes = [MultiPartParser]
+
+    def post(self, request):
+        user_role = request.user.role
+
+
+        if user_role not in ['Admin', 'Principal']:
+            return Response(
+                {"error": "You do not have permission to upload students."},
+                status=status.HTTP_403_FORBIDDEN
+            )
+
+        
+        class_level_id = request.data.get('class_level')
+        term_id = request.data.get('term')
+        admission_type = request.data.get('admission_type')
+
+        if not class_level_id or not term_id or not admission_type:
+            return Response(
+                {"error": "class_level, current_term, and admission_type are required."},
+                status=status.HTTP_400_BAD_REQUEST
+            )
 
         try:
-            student = Student.objects.get(pk=pk)
-        except Student.DoesNotExist:
-            return Response({"error": "Student not found."}, status=status.HTTP_404_NOT_FOUND)
-        student.delete()
+            class_level = ClassLevel.objects.get(id=class_level_id)
+        except ClassLevel.DoesNotExist:
+            return Response({"error": "Class level does not exist."}, status=status.HTTP_404_NOT_FOUND)
 
-        return Response({"message": "Student deleted successfully."}, status=status.HTTP_204_NO_CONTENT)
-    
+        try:
+            current_term = Term.objects.get(id=term_id)
+        except Term.DoesNotExist:
+            return Response({"error": "Term does not exist."}, status=status.HTTP_404_NOT_FOUND)
+
+        
+        students_file = request.FILES.get('students_file')
+        if not students_file:
+            return Response({"error": "No file uploaded."}, status=status.HTTP_400_BAD_REQUEST)
+
+        errors = []
+        successes = []
+
+        try:
+            
+            file_extension = students_file.name.split('.')[-1].lower()
+            if file_extension == 'csv':
+                df = pd.read_csv(students_file)
+            elif file_extension in ['xls', 'xlsx']:
+                df = pd.read_excel(students_file)
+            else:
+                return Response(
+                    {"error": "Invalid file type. Only CSV and Excel are supported."},
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+
+          
+            required_columns = {'first_name', 'last_name', 'gender', 'admission_number', 'kcpe_marks'}
+            missing_columns = required_columns - set(df.columns)
+            if missing_columns:
+                return Response(
+                    {"error": f"The following required columns are missing: {', '.join(missing_columns)}"},
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+
+            
+            for index, row in df.iterrows():
+                try:
+                    first_name = row.get('first_name')
+                    last_name = row.get('last_name')
+                    gender = row.get('gender')
+                    admission_number = row.get('admission_number')
+                    kcpe_marks = row.get('kcpe_marks')
+
+                   
+                    if pd.isnull(first_name) or pd.isnull(last_name) or pd.isnull(gender) or pd.isnull(admission_number) or pd.isnull(kcpe_marks):
+                        errors.append(f"Missing data in row {index + 1}.")
+                        continue
+
+                    
+                    if Student.objects.filter(admission_number=admission_number).exists():
+                        errors.append(f"Student with admission number {admission_number} already exists.")
+                        continue
+
+                   
+                    form_level = class_level.form_level.level
+
+                   
+                    student = Student.objects.create(
+                        admission_number=admission_number,
+                        first_name=first_name,
+                        last_name=last_name,
+                        gender=gender,
+                        kcpe_marks=kcpe_marks,
+                        class_level=class_level,
+                        current_term=current_term,
+                        admission_type=admission_type,
+                        
+                    )
+
+                    if form_level <= 2:
+                        assign_all_subjects(student)
+                    else:
+                        core_subjects = Subject.objects.filter(subject_type='Core')
+                        assign_core_subjects(student, core_subjects)
+
+                    successes.append(f"Student {first_name} {last_name} (Admission: {admission_number}) uploaded successfully.")
+
+                except Exception as e:
+                    errors.append(f"Error processing student {first_name} {last_name} (Admission: {admission_number}): {str(e)}")
+
+            # Prepare response
+            response_data = {}
+            if successes:
+                response_data["message"] = "Some students were uploaded successfully."
+                response_data["successes"] = successes
+            if errors:
+                response_data["errors"] = errors
+
+            status_code = status.HTTP_207_MULTI_STATUS if successes and errors else (
+                status.HTTP_201_CREATED if successes else status.HTTP_400_BAD_REQUEST
+            )
+            return Response(response_data, status=status_code)
+
+        except Exception as e:
+            return Response({"error": str(e)}, status=status.HTTP_400_BAD_REQUEST)
+
 class FilterStudentsAPIView(APIView):
     permission_classes = [IsAuthenticated]  
     def get(self, request):
@@ -213,7 +369,7 @@ class FilterStudentsAPIView(APIView):
             if not student_with_subject_exists:
                 if admission_number and subject_id and class_level_id:
                     return Response({
-                        "error": f"No student found with that admission number {admission_number} has no the given subject {student_subject_exists.subject.subject_name} in the selected class {class_exists.form_level.name}{f'({class_exists.stream.name})' if class_exists.stream else ''}. "}, status=status.HTTP_404_NOT_FOUND
+                        "error": f"Student  with that admission number {admission_number} has no the given subject {student_subject_exists.subject.subject_name} in the selected class {class_exists.form_level.name}{f'({class_exists.stream.name})' if class_exists.stream else ''}. "}, status=status.HTTP_404_NOT_FOUND
                     )
                 if admission_number and subject_id:
                     return Response({

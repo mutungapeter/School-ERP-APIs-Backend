@@ -1,12 +1,13 @@
 from django.urls import path
 
-from .views import AssignElectivesAPIView,PromoteStudentsToAlumniAPIView, PromoteStudentsAPIView, StudentAPIView, StudentSubjectAPIView,FilterStudentsAPIView
+from .views import AssignElectivesAPIView,PromoteStudentsToAlumniAPIView,UploadStudentsAPIView, PromoteStudentsAPIView, StudentAPIView, StudentSubjectAPIView,FilterStudentsAPIView
 
 
 
 urlpatterns = [
     path('students/', StudentAPIView.as_view(), name='students-list'),
     path('filter-students/', FilterStudentsAPIView.as_view(), name='filter-students-list'),
+    path('upload-students/', UploadStudentsAPIView.as_view(), name='upload-students-list'),
     path('students/<int:pk>/', StudentAPIView.as_view(), name='student-detail-update-delete'),
     
     path('student-subjects/', StudentSubjectAPIView.as_view(), name='student-subject-list'),
