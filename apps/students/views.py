@@ -575,6 +575,7 @@ class PromoteStudentsAPIView(APIView):
     @transaction.atomic
     def post(self, request, *args, **kwargs):
         data = request.data
+        print("data", data)
         serializer = self.serializer_class(data=data)
         
         if serializer.is_valid(raise_exception=True):
@@ -582,9 +583,13 @@ class PromoteStudentsAPIView(APIView):
             target_class_level = serializer.validated_data['target_class_level']
             current_term_id = serializer.validated_data.get('current_term')
             students = Student.objects.filter(class_level=source_class_level)
-            
+            try:
+                term = Term.objects.get(id=current_term_id)
+                print("term", term)
+            except Term.DoesNotExist:
+                return Response({"error": "Term does not exist with the provided ID."}, status=status.HTTP_404_NOT_FOUND)
             for student in students:
-                student.current_term = Term.objects.get(id=current_term_id)  
+                student.current_term = term
                 student.save()
                 PromotionRecord.objects.create(
                     student=student,
@@ -592,9 +597,13 @@ class PromoteStudentsAPIView(APIView):
                     target_class_level=target_class_level,
                     year=serializer.validated_data['year']
                 )
-                
-            student.class_level = target_class_level
-            student.save()
+          
+            # student.class_level = target_class_level
+            # student.save()
+            for student in students:
+                student.class_level = target_class_level
+                student.save()
+
             
             
             form_level = target_class_level.form_level.level
