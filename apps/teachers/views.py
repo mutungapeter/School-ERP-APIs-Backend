@@ -130,20 +130,36 @@ class TeacherAPIView(APIView):
         else:
             return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
-    def delete(self, request, pk):
+  
+    def delete(self, request):
+        if not request.user.is_authenticated:
+                return Response(status=status.HTTP_401_UNAUTHORIZED)
+
+            
         if request.user.role not in ['Admin', 'Principal']:
-            return Response({"error": "You do not have permission to delete this teacher."}, status=status.HTTP_403_FORBIDDEN)
+            return Response({"error": "You do not have permission to delete Teachers."}, status=status.HTTP_403_FORBIDDEN)
+        print(request.data)
+         
+        teacher_ids = request.data if isinstance(request.data, list) else request.data.get('student_ids', [])
+        # print("teacher_ids;", teacher_ids)
 
-        try:
-            teacher = Teacher.objects.get(pk=pk)
-        except Teacher.DoesNotExist:
-            return Response({"error": "Teacher not found with the provided ID."}, status=status.HTTP_404_NOT_FOUND)
+            
+        if not teacher_ids:
+            return Response({"error": "No teachers  provided."}, status=status.HTTP_400_BAD_REQUEST)
 
-        try:
-            teacher.delete()
-            return Response({"message": "Teacher successfully deleted."}, status=status.HTTP_204_NO_CONTENT)
-        except Exception as e:
-            return Response({"error": "An error occurred while deleting the teacher. Please try again later."}, status=status.HTTP_400_BAD_REQUEST)
+            
+        teachers = Teacher.objects.filter(id__in=teacher_ids)
+        teacher_count = teachers.count()
+        if teacher_count == 0:
+            return Response({"error": "Selected Teachers not found!."}, status=status.HTTP_404_NOT_FOUND)
+
+        
+        for teacher in teachers:
+            teacher.user.delete()
+
+        teachers.delete()
+
+        return Response({"message": f"{teacher_count} Teachers deleted successfully."}, status=status.HTTP_200_OK)
 
 
 class TeacherSubjectAPIView(APIView):

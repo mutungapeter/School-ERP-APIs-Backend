@@ -137,20 +137,7 @@ class StudentAPIView(APIView):
             return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
         
 
-    # def delete(self, request, pk=None):
-        # if not request.user.is_authenticated:
-        #     return Response(status=status.HTTP_401_UNAUTHORIZED)
-
-        # if request.user.role not in ['Admin', 'Principal']:
-        #     return Response({"error": "You do not have permission to delete a student."}, status=status.HTTP_403_FORBIDDEN)
-
-        # try:
-        #     student = Student.objects.get(pk=pk)
-        # except Student.DoesNotExist:
-        #     return Response({"error": "Student not found."}, status=status.HTTP_404_NOT_FOUND)
-        # student.delete()
-
-        # return Response({"message": "Student deleted successfully."}, status=status.HTTP_204_NO_CONTENT)
+   
     def delete(self, request):
         if not request.user.is_authenticated:
                 return Response(status=status.HTTP_401_UNAUTHORIZED)
@@ -581,43 +568,80 @@ class PromoteStudentsAPIView(APIView):
         if serializer.is_valid(raise_exception=True):
             source_class_level = serializer.validated_data['source_class_level']
             target_class_level = serializer.validated_data['target_class_level']
-            current_term_id = serializer.validated_data.get('current_term')
+            year = serializer.validated_data['year']
+            
+           
             students = Student.objects.filter(class_level=source_class_level)
-            try:
-                term = Term.objects.get(id=current_term_id)
-                print("term", term)
-            except Term.DoesNotExist:
-                return Response({"error": "Term does not exist with the provided ID."}, status=status.HTTP_404_NOT_FOUND)
+          
             for student in students:
-                student.current_term = term
-                student.save()
                 PromotionRecord.objects.create(
                     student=student,
                     source_class_level=source_class_level,
                     target_class_level=target_class_level,
-                    year=serializer.validated_data['year']
+                    year=year
                 )
           
-            # student.class_level = target_class_level
-            # student.save()
+           
             for student in students:
                 student.class_level = target_class_level
                 student.save()
 
-            
-            
-            form_level = target_class_level.form_level.level
-            if form_level <= 2:
-                assign_all_subjects(student)
-            elif form_level == 3:
-                core_subjects = Subject.objects.filter(subject_type='Core')
-                assign_core_subjects(student, core_subjects)
-            elif form_level == 4:
-                retain_current_student_subjects(student)
+                form_level = target_class_level.form_level.level
+                if form_level <= 2:
+                    # print(f"Assigning subjects for form level: {form_level}")
+                    assign_all_subjects(student)
+                elif form_level == 3:
+                    # print(f"Form level {form_level}: Core subjects found: {core_subjects}")
+                    core_subjects = Subject.objects.filter(subject_type='Core')
+                    assign_core_subjects(student, core_subjects)
+                elif form_level == 4:
+                    # print(f"Form level {form_level}: Retaining current subjects")
+                    retain_current_student_subjects(student)
     
             return Response({"message": "Students successfully promoted"}, status=status.HTTP_201_CREATED)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
-    
+  
+class PromoteStudentsToNextTermAPIView(APIView):
+    renderer_classes = [JSONRenderer, BrowsableAPIRenderer]
+    def post(self, request):
+        class_level_id = request.data.get("class_level")
+        term_id = request.data.get("term")
+
+        if not class_level_id or not term_id:
+            return Response(
+                {"error": "Both 'class' and 'term' are required."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        try:
+            class_level = ClassLevel.objects.get(id=class_level_id)
+            next_term = Term.objects.get(id=term_id, status="Upcoming")
+        except ClassLevel.DoesNotExist:
+            return Response(
+                {"error": "The specified class level does not exist."},
+                status=status.HTTP_404_NOT_FOUND,
+            )
+        except Term.DoesNotExist:
+            return Response(
+                {"error": "The specified term does not exist or is not 'Upcoming'."},
+                status=status.HTTP_404_NOT_FOUND,
+            )
+        students = Student.objects.filter(class_level=class_level, status="Active")
+        if not students.exists():
+            return Response(
+                {"message": "No active students found in the specified class level."},
+                status=status.HTTP_200_OK,
+            )
+
+        students.update(current_term=next_term)
+
+        return Response(
+            {
+                "message": f"Successfully promoted {students.count()} students in class level {class_level} to term {next_term}.",
+            },
+            status=status.HTTP_200_OK,
+        )
+
 class PromoteStudentsToAlumniAPIView(APIView):
     renderer_classes = [JSONRenderer, BrowsableAPIRenderer]
     serializer_class = PromoteStudentsToAlumniSerializer

@@ -1,7 +1,17 @@
 from django.urls import path
 
-from .views import AssignElectivesAPIView,PromoteStudentsToAlumniAPIView,UploadStudentsAPIView, PromoteStudentsAPIView, StudentAPIView, StudentSubjectAPIView,FilterStudentsAPIView
+from .views import(
+    
+AssignElectivesAPIView,
+PromoteStudentsToNextTermAPIView,
+PromoteStudentsToAlumniAPIView,
+UploadStudentsAPIView, 
+PromoteStudentsAPIView,
+StudentAPIView,
+StudentSubjectAPIView,
+FilterStudentsAPIView
 
+    ) 
 
 
 urlpatterns = [
@@ -17,6 +27,7 @@ urlpatterns = [
     path("assign-electives/", AssignElectivesAPIView.as_view(), name="assign-electives"),
     
     path("promote-students/", PromoteStudentsAPIView.as_view(), name="promote-students"),
+    path("promote-students-to-next-term/", PromoteStudentsToNextTermAPIView.as_view(), name="promote-students-to-next-term"),
     path("promote-students-to-alumni/", PromoteStudentsToAlumniAPIView.as_view(), name="promote-students-to-alumni"),
 
    

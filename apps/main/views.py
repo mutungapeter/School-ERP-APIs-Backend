@@ -80,13 +80,35 @@ class SubjectAPIView(APIView):
         except Exception as e:
             return Response({"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
-    def delete(self, request, pk):
-        try:
-            subject = Subject.objects.get(pk=pk)
-        except Subject.DoesNotExist:
-            return Response(status=status.HTTP_404_NOT_FOUND)
-        subject.delete()
-        return Response(status=status.HTTP_204_NO_CONTENT)
+   
+    def delete(self, request):
+        if not request.user.is_authenticated:
+                return Response(status=status.HTTP_401_UNAUTHORIZED)
+
+            
+        if request.user.role not in ['Admin', 'Principal']:
+            return Response({"error": "You do not have permission to delete subjects."}, status=status.HTTP_403_FORBIDDEN)
+        print(request.data)
+         
+        subject_ids = request.data if isinstance(request.data, list) else request.data.get('subject_ids', [])
+        print("subject_ids;", subject_ids)
+
+            
+        if not subject_ids:
+            return Response({"error": "No subjects provided for deletion."}, status=status.HTTP_400_BAD_REQUEST)
+
+            
+        subjects = Subject.objects.filter(id__in=subject_ids)
+        subject_count = subjects.count()
+        if subject_count == 0:
+            return Response({"error": "No subjects found with the provided IDs."}, status=status.HTTP_404_NOT_FOUND)
+
+        
+        subjects.delete()
+
+        return Response({"message": f"{subject_count} subjects deleted successfully."}, status=status.HTTP_200_OK)
+
+
 
 class SubjectCategoryAPIView(APIView):
     renderer_classes = [JSONRenderer, BrowsableAPIRenderer]
@@ -590,13 +612,34 @@ class TermsAPIView(APIView):
             term = serializer.save()
             return Response(TermSerializer(term).data, status=status.HTTP_200_OK)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
-    def delete(self, request, pk=None):
-        try:
-            term = Term.objects.get(pk=pk)
-            term.delete()  
-            return Response({"message": "Term deleted successfully."}, status=status.HTTP_204_NO_CONTENT)
-        except Term.DoesNotExist:
-            return Response({"error": "Term not found."}, status=status.HTTP_404_NOT_FOUND)
+   
+    def delete(self, request):
+        if not request.user.is_authenticated:
+                return Response(status=status.HTTP_401_UNAUTHORIZED)
+
+            
+        if request.user.role not in ['Admin', 'Principal']:
+            return Response({"error": "You do not have permission to delete students."}, status=status.HTTP_403_FORBIDDEN)
+        print(request.data)
+         
+        term_ids = request.data if isinstance(request.data, list) else request.data.get('term_ids', [])
+        print("term_ids;", term_ids)
+
+            
+        if not term_ids:
+            return Response({"error": "No terms provided for deletion."}, status=status.HTTP_400_BAD_REQUEST)
+
+            
+        terms = Term.objects.filter(id__in=term_ids)
+        term_count = terms.count()
+        if term_count == 0:
+            return Response({"error": "Selected terms not found or deleted."}, status=status.HTTP_404_NOT_FOUND)
+
+        # Delete the students
+        terms.delete()
+
+        return Response({"message": f"{term_count} terms deleted successfully."}, status=status.HTTP_200_OK)
+
 
 class ActiveTermsAPIView(APIView):
     renderer_classes = [JSONRenderer, BrowsableAPIRenderer]
@@ -606,6 +649,26 @@ class ActiveTermsAPIView(APIView):
         
            
         terms = Term.objects.filter(status="Active")
+        page = request.query_params.get('page')
+        page_size = request.query_params.get('page_size')
+            
+        if page or page_size:
+            paginator = DataPagination()
+            paginated_subjects = paginator.paginate_queryset(terms, request)
+            serializer = TermListSerializer(paginated_subjects, many=True)
+            return paginator.get_paginated_response(serializer.data)
+        else:
+                
+            serializer = TermListSerializer(terms, many=True)
+            return Response(serializer.data)
+class UpcomingTermsAPIView(APIView):
+    renderer_classes = [JSONRenderer, BrowsableAPIRenderer]
+    serializer_class = TermListSerializer
+    def get(self, request):
+        user_role = request.user.role 
+        
+           
+        terms = Term.objects.filter(status="Upcoming")
         page = request.query_params.get('page')
         page_size = request.query_params.get('page_size')
             
