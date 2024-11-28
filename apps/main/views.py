@@ -223,14 +223,34 @@ class FormLevelAPIView(APIView):
             return Response(serializer.data)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
-    def delete(self, request, pk):
-        try:
-            form_level = FormLevel.objects.get(pk=pk)
-        except FormLevel.DoesNotExist:
-            return Response(status=status.HTTP_404_NOT_FOUND)
-        form_level.delete()
-        return Response(status=status.HTTP_204_NO_CONTENT)
+   
+    def delete(self, request):
+        if not request.user.is_authenticated:
+                return Response(status=status.HTTP_401_UNAUTHORIZED)
 
+            
+        if request.user.role not in ['Admin', 'Principal']:
+            return Response({"error": "You do not have permission to delete Form Levels."}, status=status.HTTP_403_FORBIDDEN)
+        print(request.data)
+         
+        form_level_ids = request.data if isinstance(request.data, list) else request.data.get('form_level_ids', [])
+        # print("teacher_ids;", teacher_ids)
+
+            
+        if not form_level_ids:
+            return Response({"error": "No Form Levels  provided for deletion."}, status=status.HTTP_400_BAD_REQUEST)
+
+            
+        form_levels = FormLevel.objects.filter(id__in=form_level_ids)
+        form_levels_count = form_levels.count()
+        if form_levels_count == 0:
+            return Response({"error": "Selected Form Levels not found, or may have been deleted!."}, status=status.HTTP_404_NOT_FOUND)
+
+    
+
+        form_levels.delete()
+
+        return Response({"message": f"{form_levels_count} form level(es) deleted successfully."}, status=status.HTTP_200_OK)
 class StreamAPIView(APIView):
     renderer_classes = [JSONRenderer, BrowsableAPIRenderer]
     serializer_class = StreamSerializer
@@ -293,6 +313,33 @@ class StreamAPIView(APIView):
             return Response(status=status.HTTP_404_NOT_FOUND)
         stream.delete()
         return Response(status=status.HTTP_204_NO_CONTENT)
+    def delete(self, request):
+        if not request.user.is_authenticated:
+                return Response(status=status.HTTP_401_UNAUTHORIZED)
+
+            
+        if request.user.role not in ['Admin', 'Principal']:
+            return Response({"error": "You do not have permission to delete Streams."}, status=status.HTTP_403_FORBIDDEN)
+        print(request.data)
+         
+        stream_ids = request.data if isinstance(request.data, list) else request.data.get('stream_ids', [])
+        # print("teacher_ids;", teacher_ids)
+
+            
+        if not stream_ids:
+            return Response({"error": "No Streams  provided for deletion."}, status=status.HTTP_400_BAD_REQUEST)
+
+            
+        streams = Stream.objects.filter(id__in=stream_ids)
+        streams_count = streams.count()
+        if streams_count == 0:
+            return Response({"error": "Selected Streams not found, or may have been deleted!."}, status=status.HTTP_404_NOT_FOUND)
+
+    
+
+        streams.delete()
+
+        return Response({"message": f"{streams_count} stream(s) deleted successfully."}, status=status.HTTP_200_OK)
 
 class ClassLevelAPIView(APIView):
     renderer_classes = [JSONRenderer, BrowsableAPIRenderer]
@@ -379,13 +426,39 @@ class ClassLevelAPIView(APIView):
             return Response(serializer.data)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
-    def delete(self, request, pk):
-        try:
-            class_level = ClassLevel.objects.get(pk=pk)
-        except ClassLevel.DoesNotExist:
-            return Response(status=status.HTTP_404_NOT_FOUND)
-        class_level.delete()
-        return Response(status=status.HTTP_204_NO_CONTENT)
+  
+    def delete(self, request):
+        if not request.user.is_authenticated:
+                return Response(status=status.HTTP_401_UNAUTHORIZED)
+
+            
+        if request.user.role not in ['Admin', 'Principal']:
+            return Response({"error": "You do not have permission to delete CLass Levels."}, status=status.HTTP_403_FORBIDDEN)
+        print(request.data)
+         
+        class_level_ids = request.data if isinstance(request.data, list) else request.data.get('class_level_ids', [])
+        # print("teacher_ids;", teacher_ids)
+
+            
+        if not class_level_ids:
+            return Response({"error": "No classes  provided for deletion."}, status=status.HTTP_400_BAD_REQUEST)
+
+            
+        class_levels = ClassLevel.objects.filter(id__in=class_level_ids)
+        class_levels_count = class_levels.count()
+        if class_levels_count == 0:
+            return Response({"error": "Selected Classes not found, or may have been deleted!."}, status=status.HTTP_404_NOT_FOUND)
+
+        
+        # for class_level in class_levels:
+        #     class_level.form_level.delete()
+        #     class_level.stream.delete()
+
+        class_levels.delete()
+
+        return Response({"message": f"{class_levels_count} class(es) deleted successfully."}, status=status.HTTP_200_OK)
+
+
 class GraduatingClassAPIView(APIView):
     renderer_classes = [JSONRenderer, BrowsableAPIRenderer]
     serializer_class = ClassLevelListSerializer
