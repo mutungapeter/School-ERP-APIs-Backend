@@ -41,12 +41,14 @@ class Student(AbstractBaseModel):
 class StudentSubject(AbstractBaseModel):
     student = models.ForeignKey(Student, on_delete=models.CASCADE)
     subject = models.ForeignKey(Subject, on_delete=models.CASCADE)
+    class_level = models.ForeignKey(ClassLevel, on_delete=models.CASCADE ,default=ClassLevel.objects.first)
 
     class Meta:
-        unique_together = ('student', 'subject')
+        unique_together = ('student', 'subject', 'class_level')
 
     def __str__(self):
-        return f"{self.student} - {self.subject}"
+        
+        return f"{self.student} - {self.subject} -{self.class_level}"
     
 class PromotionRecord(AbstractBaseModel):
     student = models.ForeignKey(Student, on_delete=models.CASCADE)

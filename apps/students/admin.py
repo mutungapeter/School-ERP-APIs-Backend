@@ -10,7 +10,7 @@ class StudentAdmin(admin.ModelAdmin):
 admin.site.register(Student, StudentAdmin)
 
 class StudentSubjectAdmin(admin.ModelAdmin):
-    list_display = ('id', 'student', 'subject', )
+    list_display = ('id', 'student', 'subject', 'class_level' )
 
 admin.site.register(StudentSubject, StudentSubjectAdmin)
 class PromotionRecordAdmin(admin.ModelAdmin):

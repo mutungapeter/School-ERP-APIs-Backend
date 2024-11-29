@@ -27,18 +27,33 @@ class StudentAPIView(APIView):
         class_level_id = request.query_params.get('class_level_id')
         page = request.query_params.get('page')
         page_size = request.query_params.get('page_size')
+        class_level_id = request.query_params.get('class_level_id')
         
         if request.user.role not in ['Admin', 'Principal', 'Teacher']:
             return Response({"error": "You do not have permission to view  students records."}, status=status.HTTP_403_FORBIDDEN)
        
-        # queryset = None
         queryset = Student.objects.filter(status='Active')
         if pk:
             try:
                 
                 student = Student.objects.filter(status='Active').get(pk=pk)
-                serializer = StudentListSerializer(student)
-                return Response(serializer.data)
+                current_class_level = student.class_level
+                if class_level_id:
+                    class_level_filter = ClassLevel.objects.get(id=class_level_id)
+                    student_subjects = StudentSubject.objects.filter(student=student, class_level=class_level_filter)
+                    if not student_subjects.exists():
+                        return Response(
+                            {"error": "The student has no subjects registered for the given selected class!."},
+                            status=status.HTTP_404_NOT_FOUND,
+                        )
+                else:
+                    student_subjects = StudentSubject.objects.filter(student=student, class_level=current_class_level)
+                # student_subjects = StudentSubject.objects.filter(student=student, class_level=current_class_level)
+                
+                student_data = StudentListSerializer(student).data
+                student_data['subjects'] = StudentSubjectSerializer(student_subjects, many=True).data
+
+                return Response(student_data)
             except Student.DoesNotExist:
                 return Response(status=status.HTTP_404_NOT_FOUND)
         
@@ -96,13 +111,13 @@ class StudentAPIView(APIView):
             print("student:", student)
             if form_level <= 2:
                 assign_all_subjects(student)
-            else:
+            elif form_level == 3:
+                print(f"Form level {form_level}: Core subjects found: {core_subjects}")
                 core_subjects = Subject.objects.filter(subject_type='Core')
                 assign_core_subjects(student, core_subjects)
-                electives = request.data.get('electives', [])
-                if electives:
-                    elective_subjects = Subject.objects.filter(id__in=electives, subject_type='Elective')
-                    assign_electives(student, elective_subjects)
+            elif form_level == 4:
+                print(f"Form level {form_level}: Retaining current subjects")
+                retain_current_student_subjects(student)
             return Response(serializer.data, status=status.HTTP_201_CREATED)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
@@ -587,15 +602,16 @@ class PromoteStudentsAPIView(APIView):
                 student.save()
 
                 form_level = target_class_level.form_level.level
+                print("form_level", form_level)
                 if form_level <= 2:
-                    # print(f"Assigning subjects for form level: {form_level}")
+                    print(f"Assigning subjects for form level: {form_level}")
                     assign_all_subjects(student)
                 elif form_level == 3:
-                    # print(f"Form level {form_level}: Core subjects found: {core_subjects}")
+                    print(f"Form level {form_level}: Core subjects found: {core_subjects}")
                     core_subjects = Subject.objects.filter(subject_type='Core')
                     assign_core_subjects(student, core_subjects)
                 elif form_level == 4:
-                    # print(f"Form level {form_level}: Retaining current subjects")
+                    print(f"Form level {form_level}: Retaining current subjects")
                     retain_current_student_subjects(student)
     
             return Response({"message": "Students successfully promoted"}, status=status.HTTP_201_CREATED)

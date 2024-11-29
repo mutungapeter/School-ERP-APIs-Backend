@@ -102,13 +102,33 @@ class MarksAPIView(APIView):
         except Exception as e:
             return Response({"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
-    def delete(self, request, pk):
-        try:
-            marksData = MarksData.objects.get(pk=pk)
-        except MarksData.DoesNotExist:
-            return Response(status=status.HTTP_404_NOT_FOUND)
-        marksData.delete()
-        return Response(status=status.HTTP_204_NO_CONTENT)
+   
+    def delete(self, request):
+        if not request.user.is_authenticated:
+                return Response(status=status.HTTP_401_UNAUTHORIZED)
+
+            
+        if request.user.role not in ['Admin', 'Principal']:
+            return Response({"error": "You do not have permission to delete Marks records."}, status=status.HTTP_403_FORBIDDEN)
+        print(request.data)
+         
+        marks_ids = request.data if isinstance(request.data, list) else request.data.get('marks_ids', [])
+        print("marks_ids;", marks_ids)
+
+            
+        if not marks_ids:
+            return Response({"error": "No Marks provided for deletion."}, status=status.HTTP_400_BAD_REQUEST)
+
+            
+        marks_list = MarksData.objects.filter(id__in=marks_ids)
+        marks_count = marks_list.count()
+        if marks_count == 0:
+            return Response({"error": "No Marks records found or may have been deleted."}, status=status.HTTP_404_NOT_FOUND)
+
+        
+        marks_list.delete()
+
+        return Response({"message": f"{marks_count} marks records deleted successfully."}, status=status.HTTP_200_OK)
 
 
 class UploadMarksAPIView(APIView):
@@ -306,7 +326,7 @@ class FilterMarksDataView(APIView):
                     status=status.HTTP_404_NOT_FOUND
                 )
 
-
+        # queryset = None
         if admission_number and term_id and request.user.role in ['Admin', 'Principal', 'Teacher']:
             if not student_exists:
                 return Response(
@@ -315,6 +335,7 @@ class FilterMarksDataView(APIView):
                 )
         
             print("student_exists",student_exists.admission_number)
+            
             queryset = MarksData.objects.filter(
                 student_subject__student__admission_number=student_exists.admission_number,
                 term_id=term_id,
@@ -323,7 +344,8 @@ class FilterMarksDataView(APIView):
             if subject_id and class_level_id:
                 queryset = queryset.filter(
                     student_subject__subject__id=subject_id,
-                    student_subject__student__class_level=class_level_id
+                    # student_subject__student__class_level=class_level_id
+                    student_subject__class_level__id=class_level_id
                 )
             elif subject_id:
                 queryset = queryset.filter(
@@ -331,7 +353,8 @@ class FilterMarksDataView(APIView):
                 )
             elif class_level_id:
                 queryset = queryset.filter(
-                    student_subject__student__class_level=class_level_id
+                    # student_subject__student__class_level=class_level_id
+                    student_subject__class_level__id=class_level_id
                 )
             
             marks_exists = queryset.exists()
@@ -351,12 +374,7 @@ class FilterMarksDataView(APIView):
                         return Response(
                             {"error": f"Student with admission number {admission_number} has no marks for class level {class_exists.form_level.name}{f'({class_exists.stream.name})' if class_exists.stream else ''} for term {term_exists.term}-{term_exists.calendar_year}."},
                             status=status.HTTP_404_NOT_FOUND
-                        )
-                # elif admission_number and subject_id and term_id:
-                #         return Response(
-                #         {"error": f"Student with admission number {admission_number} has no marks for subject '{student_subject_exists.subject.subject_name}'for term {term_exists.term}-{term_exists.calendar_year}."},
-                #         status=status.HTTP_404_NOT_FOUND
-                #     )   
+                        )   
                 else: 
                     return Response(
                         {"error": f"Student with admission number {admission_number} has no marks for term {term_exists.term}-{term_exists.calendar_year}."},
@@ -381,7 +399,8 @@ class FilterMarksDataView(APIView):
         elif subject_id and class_level_id and term_id:
             queryset = MarksData.objects.filter(
                 student_subject__subject__id=subject_id,
-                student_subject__student__class_level=class_level_id,
+                # student_subject__student__class_level=class_level_id,
+                student_subject__class_level__id=class_level_id,
                 term_id=term_id
             )
             marks_exists = queryset.exists()
@@ -400,6 +419,8 @@ class FilterMarksDataView(APIView):
         queryset = queryset.select_related(
             'student', 'student_subject__student', 'student_subject__subject'
         )
+        print("queryset",queryset.query)
+    
         
         serializer = MarkListSerializer(queryset, many=True)
         return Response(serializer.data, status=status.HTTP_200_OK)
