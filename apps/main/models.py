@@ -3,7 +3,9 @@ from django.db import models
 from django.utils import timezone
 from datetime import datetime
 from django.core.exceptions import ValidationError
+from django.core.validators import MinValueValidator, MaxValueValidator
 
+current_year = datetime.now().year
 class AbstractBaseModel(models.Model):
     created_at = models.DateTimeField(default=timezone.now)
     updated_at = models.DateTimeField(auto_now=True)
@@ -24,27 +26,19 @@ class Term(AbstractBaseModel):
         ('Upcoming', 'Upcoming'),
     ]
     term = models.CharField(max_length=10, choices=TERM_CHOICES)
-    calendar_year = models.IntegerField()
+    start_date = models.DateField(null=True, blank=True)
+    end_date = models.DateField(null=True, blank=True)
     status = models.CharField(max_length=10, choices=STATUS_CHOICES, default='Active')
- 
-    class Meta:
-        unique_together = ('term', 'calendar_year')
+    class_level = models.ForeignKey(
+        'ClassLevel',
+        on_delete=models.CASCADE,
+        related_name='terms'
+    ) 
+    
     
     def __str__(self):
-        return f"{self.term} - {self.calendar_year}"
-    def clean(self):
-            super().clean()
-            min_year = 1900
-            max_year = timezone.now().year + 100  
-            if self.calendar_year is not None:
-                if not (min_year <= self.calendar_year <= max_year):
-                    raise ValidationError(f"Year must be between {min_year} and {max_year}.")
-
-    def save(self, *args, **kwargs):
-        if not self.calendar_year:
-          self.calendar_year = timezone.now().year
-        self.full_clean() 
-        super(Term, self).save(*args, **kwargs)
+        return f"{self.term} ({self.start_date} - {self.end_date}) - {self.class_level}"
+    
 
 class SubjectCategory(AbstractBaseModel):
     name = models.CharField(max_length=255, unique=True)
@@ -71,7 +65,7 @@ class FormLevel(AbstractBaseModel):
     level = models.IntegerField(unique=True)
     
     def __str__(self):
-        return self.name
+        return f"{self.name} - {self.level}"
     
     def number_of_streams(self):
         return ClassLevel.objects.filter(form_level=self).count()
@@ -84,12 +78,34 @@ class Stream(AbstractBaseModel):
 class ClassLevel(AbstractBaseModel):
     form_level = models.ForeignKey(FormLevel, on_delete=models.CASCADE)
     stream = models.ForeignKey(Stream, on_delete=models.SET_NULL, null=True, blank=True)
-    
+    calendar_year = models.IntegerField(
+    validators=[MinValueValidator(1900), MaxValueValidator(current_year + 10)],
+    help_text="Enter a valid year.",
+    null=True
+    )
     class Meta:
-        unique_together = ('stream', 'form_level') 
+        unique_together = ('stream', 'form_level', 'calendar_year') 
+    # def save(self, *args, **kwargs):
+    #     is_new = self.pk is None  
+    #     super().save(*args, **kwargs)
+
+    #     if is_new: 
+    #         default_terms = [
+    #             {"term": "Term 1", "start_date": None, "end_date": None},
+    #             {"term": "Term 2", "start_date": None, "end_date": None},
+    #             {"term": "Term 3", "start_date": None, "end_date": None},
+    #         ]
+    #         for term_data in default_terms:
+    #             Term.objects.create(
+    #                 class_level=self,
+    #                 term=term_data["term"],
+    #                 start_date=term_data["start_date"],
+    #                 end_date=term_data["end_date"]
+    #             )
+
         
     def __str__(self):
-        return f"{self.form_level} {self.stream}"
+        return f"{self.form_level} {self.stream}- {self.calendar_year}"
     
 class GradingConfig(AbstractBaseModel):
     grade = models.CharField(max_length=255)

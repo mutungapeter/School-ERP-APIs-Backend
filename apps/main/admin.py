@@ -7,7 +7,7 @@ class SubjectAdmin(admin.ModelAdmin):
 
 admin.site.register(Subject, SubjectAdmin)
 class TermAdmin(admin.ModelAdmin):
-    list_display = ('id', 'term', 'calendar_year', 'status')
+    list_display = ('id', 'term','class_level', 'start_date', 'end_date', 'status')
 
 admin.site.register(Term, TermAdmin)
 class SubjectCategoryAdmin(admin.ModelAdmin):
@@ -15,7 +15,7 @@ class SubjectCategoryAdmin(admin.ModelAdmin):
 
 admin.site.register(SubjectCategory, SubjectCategoryAdmin)
 class ClassLevelAdmin(admin.ModelAdmin):
-    list_display = ('id', 'stream', 'form_level' )
+    list_display = ('id', 'stream', 'form_level', 'calendar_year' )
 
 admin.site.register(ClassLevel, ClassLevelAdmin)
 class StreamAdmin(admin.ModelAdmin):

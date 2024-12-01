@@ -378,8 +378,10 @@ class ClassLevelAPIView(APIView):
                 return Response(serializer.data)
 
     def post(self, request):
+        data=request.data
         form_level_id = request.data.get('form_level')
         stream_id = request.data.get('stream')
+        terms_data  = data.get('terms', [])
         existing_class_level_no_stream = ClassLevel.objects.filter(form_level_id=form_level_id, stream__isnull=True).first()
         
         if existing_class_level_no_stream and stream_id:
@@ -410,7 +412,40 @@ class ClassLevelAPIView(APIView):
 
         serializer = ClassLevelSerializer(data=request.data)
         if serializer.is_valid():
-            serializer.save()
+            
+            class_level = serializer.save()
+            terms = class_level.terms.all()
+            class_level.terms.set(terms)
+            for term_data in terms_data:
+                term_name = term_data.get('term')
+                start_date = term_data.get('start_date')
+                end_date = term_data.get('end_date')
+
+                if not term_name or not start_date or not end_date:
+                    return Response(
+                        {"error": f"Term data is incomplete for {term_name}. Please provide all required fields."},
+                        status=status.HTTP_400_BAD_REQUEST
+                    )
+              
+                try:
+                    
+                    term = Term.objects.get(term=term_name)
+
+                    
+                    term.start_date = start_date
+                    term.end_date = end_date
+                    term.save()
+
+               
+                    class_level.terms.add(term)
+                except Term.DoesNotExist:
+                    return Response(
+                        {"error": f"Term {term_name} does not exist."},
+                        status=status.HTTP_400_BAD_REQUEST
+                    )
+                
+                # class_level.terms.add(term)
+
             return Response(serializer.data, status=status.HTTP_201_CREATED)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
@@ -646,12 +681,14 @@ class TermsAPIView(APIView):
             data['status'] = 'Active' 
         
         
-        if Term.objects.filter(term=data['term'], calendar_year=data['calendar_year']).exists():
+        if Term.objects.filter(term=data['term']).exists():
             return Response({"error": "Term already exists."}, status=status.HTTP_400_BAD_REQUEST)
 
         serializer = TermSerializer(data=data)
         if serializer.is_valid():
-            term = serializer.save()  
+            term = serializer.save() 
+            all_class_levels = ClassLevel.objects.all()
+            term.class_levels.set(all_class_levels) 
             return Response(TermSerializer(term).data, status=status.HTTP_201_CREATED)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 

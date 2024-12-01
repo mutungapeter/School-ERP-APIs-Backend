@@ -582,10 +582,36 @@ class PromoteStudentsAPIView(APIView):
         
         if serializer.is_valid(raise_exception=True):
             source_class_level = serializer.validated_data['source_class_level']
-            target_class_level = serializer.validated_data['target_class_level']
-            year = serializer.validated_data['year']
+            terms_data = serializer.validated_data.get('terms', [])
             
-           
+            next_calendar_year = data.get('next_calendar_year')
+            target_form_level = data.get('target_form_level')
+            terms_data = data.get('terms', [])
+            stream = source_class_level.stream
+
+            target_form_level_instance = FormLevel.objects.get(id=target_form_level)
+            print("target_form_level_instance", target_form_level_instance)
+            target_class_level, created = ClassLevel.objects.get_or_create(
+                    form_level=target_form_level_instance,
+                    stream=stream,
+                    calendar_year=next_calendar_year
+                )
+            created_terms = []
+            for term_data in terms_data:
+                term = Term.objects.create(
+                    term=term_data["term"],
+                    start_date=term_data["start_date"],
+                    end_date=term_data["end_date"],
+                    status="Active",  
+                    class_level=target_class_level, 
+                )
+                created_terms.append(term)
+                
+            term_1 = None
+            for term in created_terms:
+                if term.term == "Term 1":
+                    term_1 = term
+                    break
             students = Student.objects.filter(class_level=source_class_level)
           
             for student in students:
@@ -593,25 +619,23 @@ class PromoteStudentsAPIView(APIView):
                     student=student,
                     source_class_level=source_class_level,
                     target_class_level=target_class_level,
-                    year=year
+                    year=next_calendar_year
                 )
           
            
             for student in students:
                 student.class_level = target_class_level
+                student.current_term = term_1
                 student.save()
 
-                form_level = target_class_level.form_level.level
+                form_level = target_form_level_instance.level
                 print("form_level", form_level)
                 if form_level <= 2:
-                    print(f"Assigning subjects for form level: {form_level}")
                     assign_all_subjects(student)
                 elif form_level == 3:
-                    print(f"Form level {form_level}: Core subjects found: {core_subjects}")
                     core_subjects = Subject.objects.filter(subject_type='Core')
                     assign_core_subjects(student, core_subjects)
                 elif form_level == 4:
-                    print(f"Form level {form_level}: Retaining current subjects")
                     retain_current_student_subjects(student)
     
             return Response({"message": "Students successfully promoted"}, status=status.HTTP_201_CREATED)
