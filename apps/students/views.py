@@ -196,13 +196,20 @@ class UploadStudentsAPIView(APIView):
             )
 
         
-        class_level_id = request.data.get('class_level')
-        term_id = request.data.get('term')
-        admission_type = request.data.get('admission_type')
+        
+        # term_id = request.data.get('term')
+       
+        data = request.data
+        class_level_id = data.get('class_level')
+        admission_type = data.get('admission_type')
+        terms_data = data.get('terms', [])
+        calendar_year = data.get('calendar_year')
+        stream = data.get('stream')
+        form_level = data.get('form_level')
 
-        if not class_level_id or not term_id or not admission_type:
+        if not  admission_type:
             return Response(
-                {"error": "class_level, current_term, and admission_type are required."},
+                {"error": "admission_type are required."},
                 status=status.HTTP_400_BAD_REQUEST
             )
 
@@ -211,12 +218,85 @@ class UploadStudentsAPIView(APIView):
         except ClassLevel.DoesNotExist:
             return Response({"error": "Class level does not exist."}, status=status.HTTP_404_NOT_FOUND)
 
-        try:
-            current_term = Term.objects.get(id=term_id)
-        except Term.DoesNotExist:
-            return Response({"error": "Term does not exist."}, status=status.HTTP_404_NOT_FOUND)
+        current_term = None
+        if admission_type == "New Admission":
+            if not class_level_id:
+                #new class creation if no class_level is provided
+                if not form_level or not terms_data:
+                    return Response(
+                        {"error": "form_level and terms_data are required to create a new class level."},
+                        status=status.HTTP_400_BAD_REQUEST
+                    )
 
-        
+                # Create new class_level and terms
+                form_level_instance = FormLevel.objects.get(id=form_level)
+                class_level, created = ClassLevel.objects.get_or_create(
+                    form_level=form_level_instance,
+                    stream=stream,
+                    calendar_year=calendar_year
+                )
+
+                # Create terms and determine current_term
+                created_terms = []
+                for term_data in terms_data:
+                    try:
+                        term = Term.objects.create(
+                            term=term_data["term"],
+                            start_date=term_data["start_date"],
+                            end_date=term_data["end_date"],
+                            class_level=class_level,
+                        )
+                        created_terms.append(term)
+                    except KeyError as e:
+                        return Response(
+                            {"error": f"Missing term field: {str(e)}"},
+                            status=status.HTTP_400_BAD_REQUEST
+                        )
+                
+                current_term = next((term for term in created_terms if term.term == "Term 1"), None)
+                if not current_term:
+                    return Response({"error": "No Term 1 provided in terms data."}, status=status.HTTP_400_BAD_REQUEST)
+            else:
+                # Use existing class_level
+                class_level = ClassLevel.objects.filter(id=class_level_id).first()
+                if not class_level:
+                    return Response(
+                        {"error": f"Class level '{class_level_id}' does not exist."},
+                        status=status.HTTP_404_NOT_FOUND
+                    )
+                current_term = Term.objects.filter(
+                    class_level=class_level,
+                    status="Active"
+                    ).order_by("start_date").first()
+                if not current_term:
+                    return Response(
+                        {"error": "No active term exists for the class level."},
+                        status=status.HTTP_404_NOT_FOUND
+                    )
+        elif admission_type == "Transfer":
+            if not class_level_id:
+                return Response(
+                    {"error": "class_level is required for Transfer admissions."},
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+
+            # Fetch class_level and its active term
+            class_level = ClassLevel.objects.filter(id=class_level_id).first()
+            if not class_level:
+                return Response(
+                    {"error": f"Class level '{class_level_id}' does not exist."},
+                    status=status.HTTP_404_NOT_FOUND
+                )
+
+            current_term = Term.objects.filter(
+                class_level=class_level,
+                status="Active"
+            ).order_by("start_date").first()
+            if not current_term:
+                return Response(
+                    {"error": "No active term exists for the class level."},
+                    status=status.HTTP_404_NOT_FOUND
+                )
         students_file = request.FILES.get('students_file')
         if not students_file:
             return Response({"error": "No file uploaded."}, status=status.HTTP_400_BAD_REQUEST)
