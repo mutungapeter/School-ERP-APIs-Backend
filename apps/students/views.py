@@ -653,45 +653,37 @@ class PromoteStudentsAPIView(APIView):
         else:
             serializer = PromotionRecordsSerializer(queryset, many=True)
             return Response(serializer.data)
-       
     @transaction.atomic
     def post(self, request, *args, **kwargs):
         data = request.data
         print("data", data)
+        current_active_term = None
+        calendar_year =  None
+        form_level = None
         serializer = self.serializer_class(data=data)
         
         if serializer.is_valid(raise_exception=True):
             source_class_level = serializer.validated_data['source_class_level']
-            terms_data = serializer.validated_data.get('terms', [])
+            target_class_level = serializer.validated_data['source_class_level']
             
-            next_calendar_year = data.get('next_calendar_year')
-            target_form_level = data.get('target_form_level')
-            terms_data = data.get('terms', [])
-            stream = source_class_level.stream
 
-            target_form_level_instance = FormLevel.objects.get(id=target_form_level)
-            print("target_form_level_instance", target_form_level_instance)
-            target_class_level, created = ClassLevel.objects.get_or_create(
-                    form_level=target_form_level_instance,
-                    stream=stream,
-                    calendar_year=next_calendar_year
-                )
-            created_terms = []
-            for term_data in terms_data:
-                term = Term.objects.create(
-                    term=term_data["term"],
-                    start_date=term_data["start_date"],
-                    end_date=term_data["end_date"],
-                    status="Active",  
-                    class_level=target_class_level, 
-                )
-                created_terms.append(term)
-                
-            term_1 = None
-            for term in created_terms:
-                if term.term == "Term 1":
-                    term_1 = term
-                    break
+            
+            class_level = ClassLevel.objects.filter(id=target_class_level).first()
+            if not class_level:
+                    return Response(
+                        {"error": f"Class level '{target_class_level}' does not exist."},
+                        status=status.HTTP_404_NOT_FOUND
+                    )
+            current_active_term = Term.objects.filter(
+                    class_level=class_level,
+                    status="Active"
+                    ).order_by("start_date").first()
+            if not current_active_term:
+                    return Response(
+                        {"error": "No active term exists for the class level."},
+                        status=status.HTTP_404_NOT_FOUND
+                    )
+            calendar_year = class_level.calendar_year
             students = Student.objects.filter(class_level=source_class_level)
           
             for student in students:
@@ -699,16 +691,16 @@ class PromoteStudentsAPIView(APIView):
                     student=student,
                     source_class_level=source_class_level,
                     target_class_level=target_class_level,
-                    year=next_calendar_year
+                    year=calendar_year
                 )
           
            
             for student in students:
                 student.class_level = target_class_level
-                student.current_term = term_1
+                student.current_term = current_active_term
                 student.save()
 
-                form_level = target_form_level_instance.level
+                form_level = class_level.form_level.level
                 print("form_level", form_level)
                 if form_level <= 2:
                     assign_all_subjects(student)
@@ -720,6 +712,73 @@ class PromoteStudentsAPIView(APIView):
     
             return Response({"message": "Students successfully promoted"}, status=status.HTTP_201_CREATED)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+       
+    # @transaction.atomic
+    # def post(self, request, *args, **kwargs):
+    #     data = request.data
+    #     print("data", data)
+    #     serializer = self.serializer_class(data=data)
+        
+    #     if serializer.is_valid(raise_exception=True):
+    #         source_class_level = serializer.validated_data['source_class_level']
+    #         terms_data = serializer.validated_data.get('terms', [])
+            
+    #         next_calendar_year = data.get('next_calendar_year')
+    #         target_form_level = data.get('target_form_level')
+    #         terms_data = data.get('terms', [])
+    #         stream = source_class_level.stream
+
+    #         target_form_level_instance = FormLevel.objects.get(id=target_form_level)
+    #         print("target_form_level_instance", target_form_level_instance)
+    #         target_class_level, created = ClassLevel.objects.get_or_create(
+    #                 form_level=target_form_level_instance,
+    #                 stream=stream,
+    #                 calendar_year=next_calendar_year
+    #             )
+    #         created_terms = []
+    #         for term_data in terms_data:
+    #             term = Term.objects.create(
+    #                 term=term_data["term"],
+    #                 start_date=term_data["start_date"],
+    #                 end_date=term_data["end_date"],
+    #                 status="Active",  
+    #                 class_level=target_class_level, 
+    #             )
+    #             created_terms.append(term)
+                
+    #         term_1 = None
+    #         for term in created_terms:
+    #             if term.term == "Term 1":
+    #                 term_1 = term
+    #                 break
+    #         students = Student.objects.filter(class_level=source_class_level)
+          
+    #         for student in students:
+    #             PromotionRecord.objects.create(
+    #                 student=student,
+    #                 source_class_level=source_class_level,
+    #                 target_class_level=target_class_level,
+    #                 year=next_calendar_year
+    #             )
+          
+           
+    #         for student in students:
+    #             student.class_level = target_class_level
+    #             student.current_term = term_1
+    #             student.save()
+
+    #             form_level = target_form_level_instance.level
+    #             print("form_level", form_level)
+    #             if form_level <= 2:
+    #                 assign_all_subjects(student)
+    #             elif form_level == 3:
+    #                 core_subjects = Subject.objects.filter(subject_type='Core')
+    #                 assign_core_subjects(student, core_subjects)
+    #             elif form_level == 4:
+    #                 retain_current_student_subjects(student)
+    
+    #         return Response({"message": "Students successfully promoted"}, status=status.HTTP_201_CREATED)
+    #     return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
   
 class PromoteStudentsToNextTermAPIView(APIView):
     renderer_classes = [JSONRenderer, BrowsableAPIRenderer]

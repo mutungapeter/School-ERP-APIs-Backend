@@ -85,23 +85,7 @@ class ClassLevel(AbstractBaseModel):
     )
     class Meta:
         unique_together = ('stream', 'form_level', 'calendar_year') 
-    # def save(self, *args, **kwargs):
-    #     is_new = self.pk is None  
-    #     super().save(*args, **kwargs)
 
-    #     if is_new: 
-    #         default_terms = [
-    #             {"term": "Term 1", "start_date": None, "end_date": None},
-    #             {"term": "Term 2", "start_date": None, "end_date": None},
-    #             {"term": "Term 3", "start_date": None, "end_date": None},
-    #         ]
-    #         for term_data in default_terms:
-    #             Term.objects.create(
-    #                 class_level=self,
-    #                 term=term_data["term"],
-    #                 start_date=term_data["start_date"],
-    #                 end_date=term_data["end_date"]
-    #             )
 
         
     def __str__(self):

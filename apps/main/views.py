@@ -381,8 +381,13 @@ class ClassLevelAPIView(APIView):
         data=request.data
         form_level_id = request.data.get('form_level')
         stream_id = request.data.get('stream')
-        terms_data  = data.get('terms', [])
-        existing_class_level_no_stream = ClassLevel.objects.filter(form_level_id=form_level_id, stream__isnull=True).first()
+        calendar_year=request.data.get('calendar_year')
+       
+        existing_class_level_no_stream = ClassLevel.objects.filter(
+            form_level_id=form_level_id, 
+            calendar_year=calendar_year, 
+            stream__isnull=True
+            ).first()
         
         if existing_class_level_no_stream and stream_id:
             return Response(
@@ -396,14 +401,12 @@ class ClassLevelAPIView(APIView):
             )
         
         if stream_id:
-            if ClassLevel.objects.filter(form_level_id=form_level_id, stream_id=stream_id).exists():
+            if ClassLevel.objects.filter(form_level_id=form_level_id, calendar_year=calendar_year, stream_id=stream_id).exists():
                 return Response(
                     {"error": "A class level with this form level and stream already exists."},
                     status=status.HTTP_400_BAD_REQUEST
                 )
         else:
-            
-            # if ClassLevel.objects.filter(form_level_id=form_level_id, stream__isnull=True).exists()
             if existing_class_level_no_stream:
                 return Response(
                     {"error": "A class level with this form level and no stream already exists."},
@@ -412,41 +415,18 @@ class ClassLevelAPIView(APIView):
 
         serializer = ClassLevelSerializer(data=request.data)
         if serializer.is_valid():
-            
             class_level = serializer.save()
-            terms = class_level.terms.all()
-            class_level.terms.set(terms)
-            for term_data in terms_data:
-                term_name = term_data.get('term')
-                start_date = term_data.get('start_date')
-                end_date = term_data.get('end_date')
-
-                if not term_name or not start_date or not end_date:
-                    return Response(
-                        {"error": f"Term data is incomplete for {term_name}. Please provide all required fields."},
-                        status=status.HTTP_400_BAD_REQUEST
-                    )
-              
-                try:
-                    
-                    term = Term.objects.get(term=term_name)
-
-                    
-                    term.start_date = start_date
-                    term.end_date = end_date
-                    term.save()
-
-               
-                    class_level.terms.add(term)
-                except Term.DoesNotExist:
-                    return Response(
-                        {"error": f"Term {term_name} does not exist."},
-                        status=status.HTTP_400_BAD_REQUEST
-                    )
-                
-                # class_level.terms.add(term)
-
-            return Response(serializer.data, status=status.HTTP_201_CREATED)
+            return Response(
+                {
+                    "message": "Class level saved successfully",
+                    "class": f"class_level.form_level.name",  
+                    "calendarYear": class_level.calendar_year,
+                    "stream": class_level.stream.name if class_level.stream else "",  
+                   
+                },
+                status=status.HTTP_201_CREATED
+            )
+            # return Response(serializer.data, status=status.HTTP_201_CREATED)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
     def put(self, request, pk):
@@ -609,7 +589,7 @@ class MeanGradeConfigAPIView(APIView):
                 serializer = MeanGradeConfigSerializer(paginated_mean_grade_configs, many=True)
                 return paginator.get_paginated_response(serializer.data)
             else:
-                serializer = MeanGradeConfigSerializer(grading_configs, many=True)
+                serializer = MeanGradeConfigSerializer(mean_grade_configs, many=True)
                 return Response(serializer.data)
 
     def post(self, request):
@@ -629,7 +609,7 @@ class MeanGradeConfigAPIView(APIView):
     def put(self, request, pk):
         try:
             mean_grade_config = MeanGradeConfig.objects.get(pk=pk)
-        except MeanGradConfig.DoesNotExist:
+        except MeanGradeConfig.DoesNotExist:
             return Response(status=status.HTTP_404_NOT_FOUND)
         grade = request.data.get('grade')
         if MeanGradeConfig.objects.filter(grade=grade).exclude(pk=pk).first():
