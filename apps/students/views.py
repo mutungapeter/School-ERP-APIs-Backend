@@ -686,21 +686,21 @@ class PromoteStudentsAPIView(APIView):
         #             year=calendar_year
         #         )
           
-        serializer = PromotionRecordSerializer(data=student_data)
-        if serializer.is_valid():
-            promotion_records.append(
-                PromotionRecord(
-                    student=student,
-                    source_class_level_id=source_class_level_id,
-                    target_class_level_id=target_class_level_id,
-                    year=calendar_year,
+            serializer = PromotionRecordSerializer(data=student_data)
+            if serializer.is_valid():
+                promotion_records.append(
+                    PromotionRecord(
+                        student=student,
+                        source_class_level_id=source_class_level_id,
+                        target_class_level_id=target_class_level_id,
+                        year=calendar_year,
+                    )
                 )
-            )
-        else:
-            return Response(
-                {"error": serializer.errors, "student_id": student.id},
-                status=status.HTTP_400_BAD_REQUEST,
-            )
+            else:
+                return Response(
+                    {"error": serializer.errors, "student_id": student.id},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
 
     #    Bulk create promotion records
         PromotionRecord.objects.bulk_create(promotion_records)
@@ -908,27 +908,26 @@ class PromoteStudentsToAlumniAPIView(APIView):
         serialized_data = []
         graduation_records = []
         for student in students:
-                
-                student_data = {
+            student_data = {
                     "student": student.id,
                     "final_class_level": final_class_level_id,
                     "graduation_year": graduation_year
                 }
 
-        serializer = GraduationRecordSerializer(data=student_data)
-        if serializer.is_valid():
-                    graduation_records.append(
-                        GraduationRecord(
+            serializer = GraduationRecordSerializer(data=student_data)
+            if serializer.is_valid():
+                graduation_records.append(
+                    GraduationRecord(
                         student=student,
                         final_class_level=final_class_level,
                         graduation_year=graduation_year
                         )
-                    )
-        else:
-                   
-                    return Response(
-                        {"error": serializer.errors, "student_id": student.id},
-                        status=status.HTTP_400_BAD_REQUEST
+                     )
+            else:
+                        
+                return Response(
+                    {"error": serializer.errors, "student_id": student.id},
+                         status=status.HTTP_400_BAD_REQUEST
                     )
 
         GraduationRecord.objects.bulk_create(graduation_records)

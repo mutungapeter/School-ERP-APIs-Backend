@@ -11,7 +11,9 @@ from .views import (
     MeanGradeConfigAPIView,
     GraduatingClassAPIView,
     ActiveTermsAPIView,
-    UpcomingTermsAPIView
+    UpcomingTermsAPIView,
+    CurrentCompletedClassesWaitingPromotionsAPIView,
+    TargetClassReadyToReceivePromotedStudentsAPIView
 )
 
 
@@ -35,6 +37,8 @@ urlpatterns = [
     path('upcoming-terms/', UpcomingTermsAPIView.as_view(), name='upcoming-terms-list'),
     
     path('class-levels/', ClassLevelAPIView.as_view(), name='class-levels-list'),
+    path('current-class-levels/', CurrentCompletedClassesWaitingPromotionsAPIView.as_view(), name='current-class-levels-list'),
+    path('target-class-levels/', TargetClassReadyToReceivePromotedStudentsAPIView.as_view(), name='target-class-levels-list'),
     path('graduating-classes/', GraduatingClassAPIView.as_view(), name='graduating-class-levels-list'),
     path('class-levels/<int:pk>/', ClassLevelAPIView.as_view(), name='class-level-detail-update-delete'),
     

@@ -364,6 +364,9 @@ class ClassLevelAPIView(APIView):
             else:
                 teacher = Teacher.objects.get(user=request.user)
                 class_levels = ClassLevel.objects.filter(teachersubject__teacher=teacher).distinct()
+            class_levels = class_levels.filter(
+                terms__status='Active'  
+            ).distinct()
             class_levels=class_levels.order_by('-created_at')
             page = request.query_params.get('page')
             page_size = request.query_params.get('page_size')
@@ -507,6 +510,50 @@ class ClassLevelAPIView(APIView):
 
         return Response({"message": f"{class_levels_count} class(es) deleted successfully."}, status=status.HTTP_200_OK)
 
+class CurrentCompletedClassesWaitingPromotionsAPIView(APIView):
+    renderer_classes = [JSONRenderer, BrowsableAPIRenderer]
+    serializer_class = ClassLevelListSerializer
+
+    def get(self, request):
+        user_role = request.user.role
+
+        
+        if user_role in ['Admin', 'Principal','Secretary']:
+            class_levels = ClassLevel.objects.all()
+        else:
+            teacher = Teacher.objects.get(user=request.user)
+            class_levels = ClassLevel.objects.filter(
+                teachersubject__teacher=teacher
+            ).distinct()
+
+        class_levels = class_levels.filter(
+            terms__status='Ended'
+        ).distinct()
+
+        serializer = self.serializer_class(class_levels, many=True)
+        return Response(serializer.data)
+class TargetClassReadyToReceivePromotedStudentsAPIView(APIView):
+    renderer_classes = [JSONRenderer, BrowsableAPIRenderer]
+    serializer_class = ClassLevelListSerializer
+
+    def get(self, request):
+        user_role = request.user.role
+
+        if user_role in ['Admin', 'Principal','Secretary']:
+            class_levels = ClassLevel.objects.all()
+        else:
+            teacher = Teacher.objects.get(user=request.user)
+            class_levels = ClassLevel.objects.filter(
+                teachersubject__teacher=teacher
+            ).distinct()
+
+        class_levels = class_levels.filter(
+            terms__status='Active'
+        ).distinct()
+
+        serializer = self.serializer_class(class_levels, many=True)
+        return Response(serializer.data)
+
 
 class GraduatingClassAPIView(APIView):
     renderer_classes = [JSONRenderer, BrowsableAPIRenderer]
@@ -524,7 +571,9 @@ class GraduatingClassAPIView(APIView):
            
             teacher = Teacher.objects.get(user=request.user)
             graduating_class_levels = graduating_class_levels.filter(teachersubject__teacher=teacher).distinct()
-
+        graduating_class_levels = graduating_class_levels.filter(
+            terms__status='Ended'
+        ).distinct()
         page = request.query_params.get('page')
         page_size = request.query_params.get('page_size')
         
