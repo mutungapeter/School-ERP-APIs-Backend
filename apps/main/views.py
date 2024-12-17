@@ -528,7 +528,10 @@ class CurrentCompletedClassesWaitingPromotionsAPIView(APIView):
 
         class_levels = class_levels.filter(
             terms__status='Ended'
+        ).exclude(
+            form_level__level=4
         ).distinct()
+
 
         serializer = self.serializer_class(class_levels, many=True)
         return Response(serializer.data)
