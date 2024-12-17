@@ -8,10 +8,7 @@ class SubjectCategorySerializer(serializers.ModelSerializer):
         fields = '__all__'
         
         
-class TermListSerializer(serializers.ModelSerializer):
-    class Meta:
-        model = Term
-        fields = "__all__"  
+
         
 
 # class TermCreateSerializer(serializers.ModelSerializer):
@@ -67,7 +64,13 @@ class TermSerializer(serializers.ModelSerializer):
      
     class Meta:
         model = Term
-        fields = ['term',  'status', 'class_level']  
+        fields = ['term',  'status', 'class_level', 'start_date', 'end_date']  
+    
+class TermListSerializer(serializers.ModelSerializer):
+    class_level = ClassLevelListSerializer()
+    class Meta:
+        model = Term
+        fields = fields = "__all__"
      
 class SubjectSerializer(serializers.ModelSerializer):
     class_levels = ClassLevelSerializer(many=True, read_only=True)  

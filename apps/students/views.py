@@ -10,7 +10,7 @@ from django.shortcuts import get_object_or_404
 from apps.main.models import Subject, FormLevel,ClassLevel, Term
 from apps.utils import DataPagination, assign_all_subjects, assign_core_subjects, assign_electives,retain_current_student_subjects
 from apps.students.models import PromotionRecord,GraduationRecord, Student, StudentSubject
-from apps.students.serializers import PromoteStudentsSerializer, GraduationRecordsSerializer, PromotionRecordsSerializer ,PromoteStudentsToAlumniSerializer, StudentListSerializer, StudentSerializer, StudentSubjectSerializer
+from apps.students.serializers import GraduationRecordSerializer, PromoteStudentsSerializer, GraduationRecordsSerializer, PromotionRecordSerializer, PromotionRecordsSerializer ,PromoteStudentsToAlumniSerializer, StudentListSerializer, StudentSerializer, StudentSubjectSerializer
 from django.db import transaction
 import pandas as pd
 from rest_framework.parsers import MultiPartParser
@@ -102,8 +102,49 @@ class StudentAPIView(APIView):
         
         if request.user.role not in ['Admin', 'Principal']:
             return Response({"error": "You do not have permission to create a student."}, status=status.HTTP_403_FORBIDDEN)
+        data = request.data
 
-        serializer = StudentSerializer(data=request.data)
+        class_level_id = data.get('class_level')
+        admission_type = data.get('admission_type')
+        admission_number = data.get('admission_number')
+
+        if not  admission_type:
+            return Response(
+                {"error": "admission_type are required."},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        try:
+            class_level = ClassLevel.objects.get(id=class_level_id)
+        except ClassLevel.DoesNotExist:
+            return Response({"error": "Class level does not exist."}, status=status.HTTP_404_NOT_FOUND)
+
+        current_term = None
+        
+        class_level = ClassLevel.objects.filter(id=class_level_id).first()
+        if not class_level:
+                    return Response(
+                        {"error": f"Class level '{class_level_id}' does not exist."},
+                        status=status.HTTP_404_NOT_FOUND
+                    )
+        current_term = Term.objects.filter(
+                    class_level=class_level,
+                    status="Active"
+                    ).order_by("start_date").first()
+        if not current_term:
+                    return Response(
+                        {"error": "No active term  for the class level. Student should be admitted to a class level with an active Term , check your term dates."},
+                        status=status.HTTP_404_NOT_FOUND
+                    )
+        if Student.objects.filter(admission_number=admission_number).exists():
+            return Response(
+                {
+                "error": "Student with Admission number already exists"
+            },
+            status=status.HTTP_400_BAD_REQUEST
+            )
+        data['current_term'] = current_term.id
+        serializer = StudentSerializer(data=data)
         if serializer.is_valid():
             student = serializer.save()
             form_level = student.class_level.form_level.level
@@ -112,8 +153,8 @@ class StudentAPIView(APIView):
             if form_level <= 2:
                 assign_all_subjects(student)
             elif form_level == 3:
-                print(f"Form level {form_level}: Core subjects found: {core_subjects}")
                 core_subjects = Subject.objects.filter(subject_type='Core')
+                print(f"Form level {form_level}: Core subjects found: {core_subjects}")
                 assign_core_subjects(student, core_subjects)
             elif form_level == 4:
                 print(f"Form level {form_level}: Retaining current subjects")
@@ -197,15 +238,11 @@ class UploadStudentsAPIView(APIView):
 
         
         
-        # term_id = request.data.get('term')
+       
        
         data = request.data
         class_level_id = data.get('class_level')
         admission_type = data.get('admission_type')
-        terms_data = data.get('terms', [])
-        calendar_year = data.get('calendar_year')
-        stream = data.get('stream')
-        form_level = data.get('form_level')
 
         if not  admission_type:
             return Response(
@@ -219,84 +256,23 @@ class UploadStudentsAPIView(APIView):
             return Response({"error": "Class level does not exist."}, status=status.HTTP_404_NOT_FOUND)
 
         current_term = None
-        if admission_type == "New Admission":
-            if not class_level_id:
-                #new class creation if no class_level is provided
-                if not form_level or not terms_data:
-                    return Response(
-                        {"error": "form_level and terms_data are required to create a new class level."},
-                        status=status.HTTP_400_BAD_REQUEST
-                    )
-
-                # Create new class_level and terms
-                form_level_instance = FormLevel.objects.get(id=form_level)
-                class_level, created = ClassLevel.objects.get_or_create(
-                    form_level=form_level_instance,
-                    stream=stream,
-                    calendar_year=calendar_year
-                )
-
-                # Create terms and determine current_term
-                created_terms = []
-                for term_data in terms_data:
-                    try:
-                        term = Term.objects.create(
-                            term=term_data["term"],
-                            start_date=term_data["start_date"],
-                            end_date=term_data["end_date"],
-                            class_level=class_level,
-                        )
-                        created_terms.append(term)
-                    except KeyError as e:
-                        return Response(
-                            {"error": f"Missing term field: {str(e)}"},
-                            status=status.HTTP_400_BAD_REQUEST
-                        )
-                
-                current_term = next((term for term in created_terms if term.term == "Term 1"), None)
-                if not current_term:
-                    return Response({"error": "No Term 1 provided in terms data."}, status=status.HTTP_400_BAD_REQUEST)
-            else:
-                # Use existing class_level
-                class_level = ClassLevel.objects.filter(id=class_level_id).first()
-                if not class_level:
+        
+        class_level = ClassLevel.objects.filter(id=class_level_id).first()
+        if not class_level:
                     return Response(
                         {"error": f"Class level '{class_level_id}' does not exist."},
                         status=status.HTTP_404_NOT_FOUND
                     )
-                current_term = Term.objects.filter(
+        current_term = Term.objects.filter(
                     class_level=class_level,
                     status="Active"
                     ).order_by("start_date").first()
-                if not current_term:
+        if not current_term:
                     return Response(
-                        {"error": "No active term exists for the class level."},
+                        {"error": "No active term  for the class level.Students should be admitted to a class level with an active Term , check your term dates."},
                         status=status.HTTP_404_NOT_FOUND
                     )
-        elif admission_type == "Transfer":
-            if not class_level_id:
-                return Response(
-                    {"error": "class_level is required for Transfer admissions."},
-                    status=status.HTTP_400_BAD_REQUEST
-                )
-
-            # Fetch class_level and its active term
-            class_level = ClassLevel.objects.filter(id=class_level_id).first()
-            if not class_level:
-                return Response(
-                    {"error": f"Class level '{class_level_id}' does not exist."},
-                    status=status.HTTP_404_NOT_FOUND
-                )
-
-            current_term = Term.objects.filter(
-                class_level=class_level,
-                status="Active"
-            ).order_by("start_date").first()
-            if not current_term:
-                return Response(
-                    {"error": "No active term exists for the class level."},
-                    status=status.HTTP_404_NOT_FOUND
-                )
+        
         students_file = request.FILES.get('students_file')
         if not students_file:
             return Response({"error": "No file uploaded."}, status=status.HTTP_400_BAD_REQUEST)
@@ -659,48 +635,83 @@ class PromoteStudentsAPIView(APIView):
         print("data", data)
         current_active_term = None
         calendar_year =  None
-        form_level = None
-        serializer = self.serializer_class(data=data)
+        source_class_level_id = data.get('source_class_level')
+        target_class_level_id = data.get('target_class_level')
         
-        if serializer.is_valid(raise_exception=True):
-            source_class_level = serializer.validated_data['source_class_level']
-            target_class_level = serializer.validated_data['source_class_level']
-            
 
             
-            class_level = ClassLevel.objects.filter(id=target_class_level).first()
-            if not class_level:
-                    return Response(
-                        {"error": f"Class level '{target_class_level}' does not exist."},
-                        status=status.HTTP_404_NOT_FOUND
-                    )
-            current_active_term = Term.objects.filter(
-                    class_level=class_level,
+       
+        try:
+            target_class_level = ClassLevel.objects.get(id=target_class_level_id)
+        except ClassLevel.DoesNotExist:
+            return Response(
+                    {"error": "Class level does not exist."},
+                    status=status.HTTP_404_NOT_FOUND
+                )
+        try:
+            source_class_level = ClassLevel.objects.get(id=source_class_level_id)
+        except ClassLevel.DoesNotExist:
+            return Response(
+                    {"error": "Class level does not exist."},
+                    status=status.HTTP_404_NOT_FOUND
+                )
+       
+        
+        current_active_term = Term.objects.filter(
+                    class_level=target_class_level,
                     status="Active"
                     ).order_by("start_date").first()
-            if not current_active_term:
+        if not current_active_term:
                     return Response(
                         {"error": "No active term exists for the class level."},
                         status=status.HTTP_404_NOT_FOUND
                     )
-            calendar_year = class_level.calendar_year
-            students = Student.objects.filter(class_level=source_class_level)
+        calendar_year = target_class_level.calendar_year
+        students = Student.objects.filter(class_level=source_class_level_id)
+        print("classLevel---->", source_class_level)
+        promotion_records = []
+        for student in students:
+            student_data = {
+                    "student": student.id,
+                    "source_class_level": source_class_level_id,
+                    "target_class_level": target_class_level_id,
+                    "year": calendar_year,
+                }
+
+        # for student in students:
+        #         PromotionRecord.objects.create(
+        #             student=student,
+        #             source_class_level=source_class_level,
+        #             target_class_level=target_class_level,
+        #             year=calendar_year
+        #         )
           
-            for student in students:
-                PromotionRecord.objects.create(
+        serializer = PromotionRecordSerializer(data=student_data)
+        if serializer.is_valid():
+            promotion_records.append(
+                PromotionRecord(
                     student=student,
-                    source_class_level=source_class_level,
-                    target_class_level=target_class_level,
-                    year=calendar_year
+                    source_class_level_id=source_class_level_id,
+                    target_class_level_id=target_class_level_id,
+                    year=calendar_year,
                 )
-          
-           
-            for student in students:
+            )
+        else:
+            return Response(
+                {"error": serializer.errors, "student_id": student.id},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+    #    Bulk create promotion records
+        PromotionRecord.objects.bulk_create(promotion_records)
+
+        
+        for student in students:
                 student.class_level = target_class_level
                 student.current_term = current_active_term
                 student.save()
 
-                form_level = class_level.form_level.level
+                form_level = target_class_level.form_level.level
                 print("form_level", form_level)
                 if form_level <= 2:
                     assign_all_subjects(student)
@@ -710,8 +721,8 @@ class PromoteStudentsAPIView(APIView):
                 elif form_level == 4:
                     retain_current_student_subjects(student)
     
-            return Response({"message": "Students successfully promoted"}, status=status.HTTP_201_CREATED)
-        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+        return Response({"message": "Students successfully promoted"}, status=status.HTTP_201_CREATED)
+        # return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
        
     # @transaction.atomic
     # def post(self, request, *args, **kwargs):
@@ -861,28 +872,78 @@ class PromoteStudentsToAlumniAPIView(APIView):
     @transaction.atomic
     def post(self, request, *args, **kwargs):
         data = request.data
-        serializer = self.serializer_class(data=data)
-        
-        if serializer.is_valid(raise_exception=True):
-            final_class_level = serializer.validated_data['final_class_level']
-            
-            
-            students = Student.objects.filter(class_level=final_class_level)
-            
-            for student in students:
-                GraduationRecord.objects.create(
-                    student=student,
-                    final_class_level=final_class_level,
-                    graduation_year=serializer.validated_data['graduation_year']
+        final_class_level_id = data.get('final_class_level')  
+        if not final_class_level_id:
+                return Response(
+                    {"error": "final_class_level is required."},
+                    status=status.HTTP_400_BAD_REQUEST
                 )
-                
-            student.status = 'Graduated'
-            student.class_level = None  
-            student.save()
+
+          
+        try:
+            final_class_level = ClassLevel.objects.get(id=final_class_level_id)
+        except ClassLevel.DoesNotExist:
+            return Response(
+                    {"error": "Class level does not exist."},
+                    status=status.HTTP_404_NOT_FOUND
+                )
+
            
-            return Response({"message": "Students successfully Completed school and promoted to Alumni."}, status=status.HTTP_201_CREATED)
-        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
- 
+        graduation_year = final_class_level.calendar_year
+        if not graduation_year:
+                return Response(
+                    {"error": "Calendar year for the class level is not set."},
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+
+         
+        students = Student.objects.filter(class_level=final_class_level_id)
+        if not students.exists():
+                return Response(
+                    {"error": "No students found for the given class level."},
+                    status=status.HTTP_404_NOT_FOUND
+                )
+
+
+        serialized_data = []
+        graduation_records = []
+        for student in students:
+                
+                student_data = {
+                    "student": student.id,
+                    "final_class_level": final_class_level_id,
+                    "graduation_year": graduation_year
+                }
+
+        serializer = GraduationRecordSerializer(data=student_data)
+        if serializer.is_valid():
+                    graduation_records.append(
+                        GraduationRecord(
+                        student=student,
+                        final_class_level=final_class_level,
+                        graduation_year=graduation_year
+                        )
+                    )
+        else:
+                   
+                    return Response(
+                        {"error": serializer.errors, "student_id": student.id},
+                        status=status.HTTP_400_BAD_REQUEST
+                    )
+
+        GraduationRecord.objects.bulk_create(graduation_records)
+        for student in students:
+                student.status = 'Graduated'
+                student.class_level = None  
+                student.save()
+
+        return Response(
+                {
+                    "message": "Students successfully completed school and promoted to Alumni.",
+                    "graduation_records": serialized_data
+                },
+                status=status.HTTP_201_CREATED
+            )
  
  
 class AssignElectivesAPIView(APIView):

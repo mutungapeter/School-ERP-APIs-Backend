@@ -35,7 +35,21 @@ class Term(AbstractBaseModel):
         related_name='terms'
     ) 
     
-    
+    def save(self, *args, **kwargs):
+        if isinstance(self.start_date, str):
+            self.start_date = datetime.strptime(self.start_date, '%Y-%m-%d').date()
+        if isinstance(self.end_date, str):
+            self.end_date = datetime.strptime(self.end_date, '%Y-%m-%d').date()
+        today = timezone.now().date()
+        if self.start_date and self.end_date:
+            if self.start_date > today:
+                self.status = 'Upcoming'
+            elif self.end_date < today:
+                self.status = 'Ended'
+            else:
+                self.status = 'Active'
+        
+        super().save(*args, **kwargs)
     def __str__(self):
         return f"{self.term} ({self.start_date} - {self.end_date}) - {self.class_level}"
     

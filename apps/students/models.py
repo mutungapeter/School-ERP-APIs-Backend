@@ -30,7 +30,7 @@ class Student(AbstractBaseModel):
     admission_number = models.CharField(max_length=255, unique=True)
     kcpe_marks = models.IntegerField(default=0)
     gender = models.CharField(max_length=255, choices=GENDER_CHOICES)
-    class_level = models.ForeignKey(ClassLevel, on_delete=models.CASCADE)  
+    class_level = models.ForeignKey(ClassLevel, null=True, blank=True, on_delete=models.CASCADE)  
     admission_type = models.CharField(max_length=255, choices=ADMISSION_TYPE_CHOICES, default='New Admission')
     status = models.CharField(max_length=255, choices=STATUS_CHOICES, default='Active')
     current_term = models.ForeignKey(Term, on_delete=models.CASCADE)

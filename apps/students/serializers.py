@@ -63,6 +63,11 @@ class GraduationRecordsSerializer(serializers.ModelSerializer):
     class Meta:
         model = GraduationRecord
         fields = "__all__"
+class GraduationRecordSerializer(serializers.ModelSerializer):
+    
+    class Meta:
+        model = GraduationRecord
+        fields = "__all__"
 class PromotionRecordsSerializer(serializers.ModelSerializer):
     student = AllStudentsFieldsSerializer()
     source_class_level = ClassLevelListSerializer()
@@ -70,3 +75,9 @@ class PromotionRecordsSerializer(serializers.ModelSerializer):
     class Meta:
         model = PromotionRecord
         fields = ['student','source_class_level','target_class_level','year' ]
+        fields = "__all__"
+class PromotionRecordSerializer(serializers.ModelSerializer):
+  
+    class Meta:
+        model = PromotionRecord
+        fields = "__all__"

@@ -430,11 +430,45 @@ class ClassLevelAPIView(APIView):
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
     def put(self, request, pk):
+        stream = request.data.get("stream")
+        form_level = request.data.get("form_level")
+        calendar_year=request.data.get('calendar_year')
+
         try:
             class_level = ClassLevel.objects.get(pk=pk)
         except ClassLevel.DoesNotExist:
             return Response(status=status.HTTP_404_NOT_FOUND)
+        existing_class_level_no_stream = ClassLevel.objects.filter(
+            form_level_id=form_level, 
+            calendar_year=calendar_year, 
+            stream__isnull=True
+            ).exclude(pk=class_level.pk).first()
 
+        if existing_class_level_no_stream and stream:
+            return Response(
+                {
+                    "error": (
+                        "A class level with this form level and no stream already exists. "
+                        "Please update or delete the existing class level before adding a new one with a stream."
+                    )
+                },
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        if stream:
+           
+            if ClassLevel.objects.filter(form_level_id=form_level, calendar_year=calendar_year, stream_id=stream).exclude(pk=class_level.pk).exists():
+                return Response(
+                    {"error": "A class level with this form level and stream already exists."},
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+        else:
+            
+            if existing_class_level_no_stream:
+                return Response(
+                    {"error": "A class level with this form level and no stream already exists."},
+                    status=status.HTTP_400_BAD_REQUEST
+                )
         serializer = ClassLevelSerializer(class_level, data=request.data)
         if serializer.is_valid():
             serializer.save()
@@ -657,18 +691,32 @@ class TermsAPIView(APIView):
                 return Response(serializer.data)
     def post(self, request):
         data = request.data
-        if 'status' not in data:
-            data['status'] = 'Active' 
         
         
-        if Term.objects.filter(term=data['term']).exists():
-            return Response({"error": "Term already exists."}, status=status.HTTP_400_BAD_REQUEST)
+        new_term_name = request.data.get("term")
+        class_level = request.data.get("class_level")
+        try:
+            class_level = ClassLevel.objects.get(pk=class_level)
+        except ClassLevel.DoesNotExist:
+            return Response(
+                {"error": "Class level not found."},
+                status=status.HTTP_404_NOT_FOUND,
+            )
 
+        calendar_year = class_level.calendar_year
+        if Term.objects.filter(
+            term=new_term_name, 
+            class_level=class_level,
+            class_level__calendar_year=calendar_year
+        ).exists():
+            return Response(
+                {"error": "A term with this name and calendar year already exists for the given class"},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        
         serializer = TermSerializer(data=data)
         if serializer.is_valid():
             term = serializer.save() 
-            all_class_levels = ClassLevel.objects.all()
-            term.class_levels.set(all_class_levels) 
             return Response(TermSerializer(term).data, status=status.HTTP_201_CREATED)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
@@ -679,13 +727,30 @@ class TermsAPIView(APIView):
         except Term.DoesNotExist:
             return Response({"error": "Term not found."}, status=status.HTTP_404_NOT_FOUND)
 
-        
-        data = request.data
-        if Term.objects.filter(term=data['term'], calendar_year=data['calendar_year']).exclude(pk=term.pk).exists():
-            return Response({"error": "Term already exists."}, status=status.HTTP_400_BAD_REQUEST)
+        new_term_name = request.data.get("term")
+        class_level = request.data.get("class_level")
 
+        try:
+            class_level = ClassLevel.objects.get(pk=class_level)
+        except ClassLevel.DoesNotExist:
+            return Response(
+                {"error": "Class level not found."},
+                status=status.HTTP_404_NOT_FOUND,
+            )
+
+        calendar_year = class_level.calendar_year
         
-        serializer = TermSerializer(term, data=data, partial=True)  
+        if Term.objects.filter(
+            term=new_term_name, 
+            class_level=class_level,
+            class_level__calendar_year=calendar_year
+        ).exclude(pk=pk).exists():
+            return Response(
+                {"error": "A term with this name and calendar year already exists for the given class"},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        
+        serializer = TermSerializer(term, data=request.data, partial=True)  
         if serializer.is_valid():
             term = serializer.save()  
             return Response(TermSerializer(term).data, status=status.HTTP_200_OK)
