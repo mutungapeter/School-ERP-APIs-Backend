@@ -502,14 +502,28 @@ class ClassLevelAPIView(APIView):
             return Response({"error": "Selected Classes not found, or may have been deleted!."}, status=status.HTTP_404_NOT_FOUND)
 
         
-        # for class_level in class_levels:
-        #     class_level.form_level.delete()
-        #     class_level.stream.delete()
+       
 
         class_levels.delete()
 
         return Response({"message": f"{class_levels_count} class(es) deleted successfully."}, status=status.HTTP_200_OK)
+class AllClassLevelsAPIView(APIView):
+    renderer_classes = [JSONRenderer, BrowsableAPIRenderer]
+    serializer_class = ClassLevelListSerializer
 
+    def get(self, request):
+        user_role = request.user.role
+
+        
+        if user_role in ['Admin', 'Principal','Secretary']:
+            class_levels = ClassLevel.objects.all()
+        else:
+            teacher = Teacher.objects.get(user=request.user)
+            class_levels = ClassLevel.objects.filter(
+                teachersubject__teacher=teacher
+            ).distinct()
+        serializer = self.serializer_class(class_levels, many=True)
+        return Response(serializer.data)
 class CurrentCompletedClassesWaitingPromotionsAPIView(APIView):
     renderer_classes = [JSONRenderer, BrowsableAPIRenderer]
     serializer_class = ClassLevelListSerializer

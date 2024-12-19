@@ -18,7 +18,7 @@ from apps.main.models import Term
 import pandas as pd
 from rest_framework.parsers import MultiPartParser
 from django.core.exceptions import ValidationError
-
+from apps.teachers.models import Teacher
 class MarksAPIView(APIView):
     renderer_classes = [JSONRenderer, BrowsableAPIRenderer]
     serializer_class = MarkListSerializer
@@ -228,7 +228,11 @@ class UploadMarksAPIView(APIView):
                     continue
                 
                 try:
-                    student_subject = StudentSubject.objects.get(student=student, subject__subject_name=subject_name)
+                    student_subject = StudentSubject.objects.get(
+                        student=student,
+                        subject__subject_name=subject_name,
+                        class_level=class_level
+                        )
                 except StudentSubject.DoesNotExist:
                     errors.append(f"Subject {subject_name} not found for student {admission_number}.")
                     continue
@@ -263,6 +267,159 @@ class UploadMarksAPIView(APIView):
         except Exception as e:
             return Response({"error": str(e)}, status=status.HTTP_400_BAD_REQUEST)
 
+# class FilterMarksDataView(APIView):
+#     permission_classes = [IsAuthenticated]  
+#     def get(self, request):
+#         if not request.user.is_authenticated:
+#             return Response(status=status.HTTP_401_UNAUTHORIZED)
+#         term_id = request.query_params.get('term')
+#         subject_id = request.query_params.get('subject')
+#         class_level_id= request.query_params.get('class_level')
+#         admission_number = request.query_params.get('admission_number')  
+#         user = request.user
+        
+#         if (admission_number) and not term_id:
+#             return Response(
+#                 {"error": "You must provide a term when using admission number."},
+#                 status=status.HTTP_400_BAD_REQUEST
+#             )
+#         if (admission_number and class_level_id and subject_id) and not term_id:
+#             return Response(
+#                 {"error": "You must provide a term when using admission number , class and subject."},
+#                 status=status.HTTP_400_BAD_REQUEST
+#             )
+#         if ( class_level_id and subject_id) and not term_id:
+#             return Response(
+#                 {"error": "You must provide a term when using Class and subject."},
+#                 status=status.HTTP_400_BAD_REQUEST
+#             )
+        
+#         student_exists = None
+#         term_exists = None
+#         if admission_number:
+#             student_exists = Student.objects.filter(admission_number=admission_number).first()
+#             if not student_exists:
+#                 return Response(
+#                     {"error": f"Student with admission number {admission_number} not found."},
+#                     status=status.HTTP_404_NOT_FOUND
+#                 )
+
+#         if term_id:
+#             term_exists = Term.objects.filter(id=term_id).first()
+#             if not term_exists:
+#                 return Response(
+#                     {"error": "Term not found."},
+#                     status=status.HTTP_404_NOT_FOUND
+#                 )
+
+#         class_exists = None
+#         if class_level_id:
+#             class_exists = ClassLevel.objects.filter(id=class_level_id).first()
+#             if not class_exists:
+#                 return Response(
+#                     {"error": "Class not found."},
+#                     status=status.HTTP_404_NOT_FOUND
+#                 )
+
+#         student_subject_exists = None
+#         if subject_id:
+#             student_subject_exists = StudentSubject.objects.filter(id=subject_id).first()
+#             if not student_subject_exists:
+#                 return Response(
+#                     {"error": f"Subject  not found."},
+#                     status=status.HTTP_404_NOT_FOUND
+#                 )
+
+#         # queryset = None
+#         if admission_number and term_id and request.user.role in ['Admin', 'Principal', 'Teacher']:
+#             queryset = MarksData.objects.filter(
+#                 student_subject__student__admission_number=student_exists.admission_number,
+#                 term_id=term_id,
+                
+#             )
+#             if subject_id and class_level_id:
+#                 queryset = queryset.filter(
+#                     student_subject__subject__id=subject_id,
+#                     # student_subject__student__class_level=class_level_id
+#                     student_subject__class_level__id=class_level_id
+#                 )
+#             elif subject_id:
+#                 queryset = queryset.filter(
+#                     student_subject__subject__id=subject_id
+#                 )
+#             elif class_level_id:
+#                 queryset = queryset.filter(
+#                     # student_subject__student__class_level=class_level_id
+#                     student_subject__class_level__id=class_level_id
+#                 )
+            
+#             marks_exists = queryset.exists()
+#             if not marks_exists:
+#                 if admission_number and term_id:
+#                     if subject_id and class_level_id:
+#                         return Response(
+#                             {"error": f"Student with admission number {admission_number} has no marks for the subject '{student_subject_exists.subject.subject_name}' in class level {class_exists.form_level.name}{f'({class_exists.stream.name})' if class_exists.stream else ''} for term {term_exists.term}-{term_exists.calendar_year}."},
+#                             status=status.HTTP_404_NOT_FOUND
+#                         )
+#                     if subject_id:
+#                         return Response(
+#                             {"error": f"Student with admission number {admission_number} has no marks for the subject '{student_subject_exists.subject.subject_name}' for term {term_exists.term}-{term_exists.calendar_year}."},
+#                             status=status.HTTP_404_NOT_FOUND
+#                         )
+#                     if class_level_id:
+#                         return Response(
+#                             {"error": f"Student with admission number {admission_number} has no marks for class level {class_exists.form_level.name}{f'({class_exists.stream.name})' if class_exists.stream else ''} for term {term_exists.term}-{term_exists.calendar_year}."},
+#                             status=status.HTTP_404_NOT_FOUND
+#                         )   
+#                 else: 
+#                     return Response(
+#                         {"error": f"Student with admission number {admission_number} has no marks for term {term_exists.term}-{term_exists.calendar_year}."},
+#                         status=status.HTTP_404_NOT_FOUND
+#                     )
+#         elif admission_number and subject_id and term_id and request.user.role in ['Admin', 'Principal', 'Teacher']:
+#             queryset = MarksData.objects.filter(
+#                 student_subject__student__admission_number=student_exists.admission_number,
+#                 student_subject__subject__id=subject_id,
+#                 term_id=term_id,
+                
+#             )
+#             marks_exists = queryset.exists()
+#             if not marks_exists:
+#                  if admission_number and subject_id and term_id:
+#                         return Response(
+#                         {"error": f"Student with admission number {admission_number} has no marks for subject '{student_subject_exists.subject.subject_name}'for term {term_exists.term}-{term_exists.calendar_year}."},
+#                         status=status.HTTP_404_NOT_FOUND
+#                     )  
+            
+                
+#         elif subject_id and class_level_id and term_id:
+#             queryset = MarksData.objects.filter(
+#                 student_subject__subject__id=subject_id,
+#                 # student_subject__student__class_level=class_level_id,
+#                 student_subject__class_level__id=class_level_id,
+#                 term_id=term_id
+#             )
+#             marks_exists = queryset.exists()
+#             if not marks_exists:
+#                 return Response(
+#                     {"error": f"No Marks for the given subject {student_subject_exists.subject.subject_name} in class  {class_exists.form_level.name} {f'({class_exists.stream.name})' if class_exists.stream else ''} for {term_exists.term}-{term_exists.calendar_year}."},
+#                     status=status.HTTP_400_BAD_REQUEST
+#                 )
+           
+#         else:
+#             return Response(
+#                 {"error": "You must provide either admission number and term or both subject and class and term."},
+#                 status=status.HTTP_400_BAD_REQUEST
+#             )
+
+#         queryset = queryset.select_related(
+#             'student', 'student_subject__student', 'student_subject__subject'
+#         )
+#         print("queryset",queryset.query)
+    
+        
+#         serializer = MarkListSerializer(queryset, many=True)
+#         return Response(serializer.data, status=status.HTTP_200_OK)
 class FilterMarksDataView(APIView):
     permission_classes = [IsAuthenticated]  
     def get(self, request):
@@ -290,8 +447,8 @@ class FilterMarksDataView(APIView):
                 status=status.HTTP_400_BAD_REQUEST
             )
         
-        student_exists = None
-        term_exists = None
+        student = None
+        term = None
         if admission_number:
             student_exists = Student.objects.filter(admission_number=admission_number).first()
             if not student_exists:
@@ -301,14 +458,14 @@ class FilterMarksDataView(APIView):
                 )
 
         if term_id:
-            term_exists = Term.objects.filter(id=term_id).first()
-            if not term_exists:
+            term = Term.objects.filter(id=term_id).first()
+            if not term:
                 return Response(
                     {"error": "Term not found."},
                     status=status.HTTP_404_NOT_FOUND
                 )
 
-        class_exists = None
+        class_exist = None
         if class_level_id:
             class_exists = ClassLevel.objects.filter(id=class_level_id).first()
             if not class_exists:
@@ -317,114 +474,50 @@ class FilterMarksDataView(APIView):
                     status=status.HTTP_404_NOT_FOUND
                 )
 
-        student_subject_exists = None
+        student = None
         if subject_id:
-            student_subject_exists = StudentSubject.objects.filter(id=subject_id).first()
-            if not student_subject_exists:
+            student_subject = StudentSubject.objects.filter(id=subject_id).first()
+            if not student_subject:
                 return Response(
                     {"error": f"Subject  not found."},
                     status=status.HTTP_404_NOT_FOUND
                 )
-
-        # queryset = None
-        if admission_number and term_id and request.user.role in ['Admin', 'Principal', 'Teacher']:
-            if not student_exists:
-                return Response(
-                    {"error": f"Student with admission number {admission_number} does not exist."},
-                    status=status.HTTP_404_NOT_FOUND
-                )
         
-            print("student_exists",student_exists.admission_number)
-            
-            queryset = MarksData.objects.filter(
-                student_subject__student__admission_number=student_exists.admission_number,
-                term_id=term_id,
-                
+        queryset = None
+        if admission_number:
+            queryset = MarksData.objects.filter(student=student, term=term_id, student_subject_class_level=class_level_id).select_related(
+                "student", "student_subject__subject", "term"
             )
-            if subject_id and class_level_id:
-                queryset = queryset.filter(
-                    student_subject__subject__id=subject_id,
-                    # student_subject__student__class_level=class_level_id
-                    student_subject__class_level__id=class_level_id
-                )
-            elif subject_id:
-                queryset = queryset.filter(
-                    student_subject__subject__id=subject_id
-                )
-            elif class_level_id:
-                queryset = queryset.filter(
-                    # student_subject__student__class_level=class_level_id
-                    student_subject__class_level__id=class_level_id
-                )
-            
-            marks_exists = queryset.exists()
-            if not marks_exists:
-                if admission_number and term_id:
-                    if subject_id and class_level_id:
-                        return Response(
-                            {"error": f"Student with admission number {admission_number} has no marks for the subject '{student_subject_exists.subject.subject_name}' in class level {class_exists.form_level.name}{f'({class_exists.stream.name})' if class_exists.stream else ''} for term {term_exists.term}-{term_exists.calendar_year}."},
-                            status=status.HTTP_404_NOT_FOUND
-                        )
-                    if subject_id:
-                        return Response(
-                            {"error": f"Student with admission number {admission_number} has no marks for the subject '{student_subject_exists.subject.subject_name}' for term {term_exists.term}-{term_exists.calendar_year}."},
-                            status=status.HTTP_404_NOT_FOUND
-                        )
-                    if class_level_id:
-                        return Response(
-                            {"error": f"Student with admission number {admission_number} has no marks for class level {class_exists.form_level.name}{f'({class_exists.stream.name})' if class_exists.stream else ''} for term {term_exists.term}-{term_exists.calendar_year}."},
-                            status=status.HTTP_404_NOT_FOUND
-                        )   
-                else: 
-                    return Response(
-                        {"error": f"Student with admission number {admission_number} has no marks for term {term_exists.term}-{term_exists.calendar_year}."},
-                        status=status.HTTP_404_NOT_FOUND
-                    )
-        elif admission_number and subject_id and term_id and request.user.role in ['Admin', 'Principal', 'Teacher']:
-            queryset = MarksData.objects.filter(
-                student_subject__student__admission_number=student_exists.admission_number,
-                student_subject__subject__id=subject_id,
-                term_id=term_id,
-                
-            )
-            marks_exists = queryset.exists()
-            if not marks_exists:
-                 if admission_number and subject_id and term_id:
-                        return Response(
-                        {"error": f"Student with admission number {admission_number} has no marks for subject '{student_subject_exists.subject.subject_name}'for term {term_exists.term}-{term_exists.calendar_year}."},
-                        status=status.HTTP_404_NOT_FOUND
-                    )  
-            
-                
-        elif subject_id and class_level_id and term_id:
-            queryset = MarksData.objects.filter(
-                student_subject__subject__id=subject_id,
-                # student_subject__student__class_level=class_level_id,
-                student_subject__class_level__id=class_level_id,
-                term_id=term_id
-            )
-            marks_exists = queryset.exists()
-            if not marks_exists:
+            if user.role not in ["Admin", "Principal"] and not (subject_id and class_level_id and term_id):
                 return Response(
-                    {"error": f"No Marks for the given subject {student_subject_exists.subject.subject_name} in class  {class_exists.form_level.name} {f'({class_exists.stream.name})' if class_exists.stream else ''} for {term_exists.term}-{term_exists.calendar_year}."},
-                    status=status.HTTP_400_BAD_REQUEST
+                    {"error": "You must provide subject, class level, and term unless you are Admin or Principal."},
+                    status=status.HTTP_400_BAD_REQUEST,
                 )
-           
-        else:
+        if class_level_id:
+            if queryset is None:
+                queryset = MarksData.objects.filter(term=term_id, student_subject_class_level=class_level_id).select_related(
+                    "student", "student_subject__subject", "term"
+                )
+            else:
+                 queryset = MarksData.objects.filter(student_subject_class_level=class_level_id)
+        if subject_id:
+            if queryset is None:
+                queryset = MarksData.objects.filter(term=term_id, student_subject=student_subject).select_related(
+                    "student", "student_subject__subject", "term"
+                )
+            else:
+                 queryset = MarksData.objects.filter(student_subject=student_subject)
+
+        if not queryset or not queryset.exists():
             return Response(
-                {"error": "You must provide either admission number and term or both subject and class and term."},
-                status=status.HTTP_400_BAD_REQUEST
+                {"error": "No matching records found with the provided criteria."},
+                status=status.HTTP_404_NOT_FOUND,
             )
 
-        queryset = queryset.select_related(
-            'student', 'student_subject__student', 'student_subject__subject'
-        )
-        print("queryset",queryset.query)
-    
-        
+        # Serialize and return results
         serializer = MarkListSerializer(queryset, many=True)
         return Response(serializer.data, status=status.HTTP_200_OK)
-    
+        
 class ReportFormAPIView(APIView):
     permission_classes = [IsAuthenticated]
 

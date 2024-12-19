@@ -20,8 +20,9 @@ def assign_all_subjects(student):
         )
 
 def assign_core_subjects(student, core_subjects):
-    class_level = student.class_level  
-    for subject in core_subjects:
+    class_level = student.class_level 
+    filtered_core_subjects = core_subjects.filter(class_levels=class_level) 
+    for subject in filtered_core_subjects:
         if not StudentSubject.objects.filter(student=student, subject=subject, class_level=class_level).exists():
             StudentSubject.objects.create(
                 student=student,
