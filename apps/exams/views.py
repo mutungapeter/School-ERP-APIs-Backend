@@ -831,7 +831,7 @@ class ClassPerformanceView(APIView):
         
         total_students = len(student_mean_grades)
         if total_students == 0:
-            return Response({"error": "No students found in the class for the selected term."}, status=status.HTTP_400_BAD_REQUEST)
+            return Response({"error": "No perfomance data found for the selected and  term."}, status=status.HTTP_400_BAD_REQUEST)
 
         class_overall_mean = total_mean_marks / total_students if total_students > 0 else 0
 
