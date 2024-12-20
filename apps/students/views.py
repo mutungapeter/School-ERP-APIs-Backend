@@ -521,8 +521,19 @@ class FilterStudentsAPIView(APIView):
         admission_number = request.query_params.get("admission_number")
         subject_id = request.query_params.get("subject_id")
         class_level_id = request.query_params.get("class_level_id")
+        term_id = request.query_params.get('term_id')
         user = request.user
+        
+        if not term_id:
+            return Response(
+                {"error": "Term is required for filtering."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
 
+        
+        term = Term.objects.filter(id=term_id).first()
+        if not term:
+            return Response({"error": "Term not found."}, status=status.HTTP_404_NOT_FOUND)
         # Validate and fetch objects
         student = None
         if admission_number:
@@ -557,7 +568,7 @@ class FilterStudentsAPIView(APIView):
         
         if admission_number:
             
-            queryset = StudentSubject.objects.filter(student=student).select_related(
+            queryset = StudentSubject.objects.filter(class_level__terms__id=term_id, student=student).select_related(
                 "student", "subject", "class_level"
             )
             if user.role not in ["Admin", "Principal"] and not (subject and class_level):
@@ -569,7 +580,7 @@ class FilterStudentsAPIView(APIView):
         
         if subject:
             if queryset is None:
-                queryset = StudentSubject.objects.filter(subject=subject).select_related(
+                queryset = StudentSubject.objects.filter(class_level__terms__id=term_id, subject=subject).select_related(
                     "student", "subject", "class_level"
                 )
             else:
@@ -584,7 +595,7 @@ class FilterStudentsAPIView(APIView):
        
         if class_level:
             if queryset is None:
-                queryset = StudentSubject.objects.filter(class_level=class_level).select_related(
+                queryset = StudentSubject.objects.filter(class_level__terms__id=term_id, class_level=class_level).select_related(
                     "student", "subject", "class_level"
                 )
             else:

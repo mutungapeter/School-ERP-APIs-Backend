@@ -1,6 +1,7 @@
 from django.urls import path
 
 from .views import (
+    AllClassLevelsAPIView,
     SubjectAPIView,
     SubjectCategoryAPIView,
     FormLevelAPIView,
@@ -37,6 +38,7 @@ urlpatterns = [
     path('upcoming-terms/', UpcomingTermsAPIView.as_view(), name='upcoming-terms-list'),
     
     path('class-levels/', ClassLevelAPIView.as_view(), name='class-levels-list'),
+    path('all-class-levels/', AllClassLevelsAPIView.as_view(), name='al-class-levels-list'),
     path('current-class-levels/', CurrentCompletedClassesWaitingPromotionsAPIView.as_view(), name='current-class-levels-list'),
     path('target-class-levels/', TargetClassReadyToReceivePromotedStudentsAPIView.as_view(), name='target-class-levels-list'),
     path('graduating-classes/', GraduatingClassAPIView.as_view(), name='graduating-class-levels-list'),
