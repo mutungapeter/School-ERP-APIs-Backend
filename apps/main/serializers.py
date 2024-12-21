@@ -49,7 +49,7 @@ class StreamSerializer(serializers.ModelSerializer):
   
 class ClassLevelListSerializer(serializers.ModelSerializer):
     stream = StreamListSerializer()
-    form_level = FormLevelSerializer()
+    
     class Meta:
         model = ClassLevel
         fields = '__all__'

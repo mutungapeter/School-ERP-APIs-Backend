@@ -382,12 +382,12 @@ class ClassLevelAPIView(APIView):
 
     def post(self, request):
         data=request.data
-        form_level_id = request.data.get('form_level')
+        level=request.data.get('level')
         stream_id = request.data.get('stream')
         calendar_year=request.data.get('calendar_year')
-       
+        name = request.data.get("name")
         existing_class_level_no_stream = ClassLevel.objects.filter(
-            form_level_id=form_level_id, 
+            name=name,
             calendar_year=calendar_year, 
             stream__isnull=True
             ).first()
@@ -404,15 +404,15 @@ class ClassLevelAPIView(APIView):
             )
         
         if stream_id:
-            if ClassLevel.objects.filter(form_level_id=form_level_id, calendar_year=calendar_year, stream_id=stream_id).exists():
+            if ClassLevel.objects.filter(name=name, calendar_year=calendar_year, stream_id=stream_id).exists():
                 return Response(
-                    {"error": "A class level with this form level and stream already exists."},
+                    {"error": "A class  with this Name and stream already exists for this given year."},
                     status=status.HTTP_400_BAD_REQUEST
                 )
         else:
             if existing_class_level_no_stream:
                 return Response(
-                    {"error": "A class level with this form level and no stream already exists."},
+                    {"error": "A class level with this name and no stream already exists for this given years."},
                     status=status.HTTP_400_BAD_REQUEST
                 )
 
@@ -522,8 +522,20 @@ class AllClassLevelsAPIView(APIView):
             class_levels = ClassLevel.objects.filter(
                 teachersubject__teacher=teacher
             ).distinct()
-        serializer = self.serializer_class(class_levels, many=True)
-        return Response(serializer.data)
+        class_levels=class_levels.order_by('-created_at')
+        page = request.query_params.get('page')
+        page_size = request.query_params.get('page_size')
+            
+        if page or page_size:
+            paginator = DataPagination()
+            paginated_class_levels = paginator.paginate_queryset(class_levels, request)
+            serializer = ClassLevelListSerializer(paginated_class_levels, many=True)
+            return paginator.get_paginated_response(serializer.data)
+        else:
+            serializer = ClassLevelListSerializer(class_levels, many=True)
+            return Response(serializer.data)
+        # serializer = self.serializer_class(class_levels, many=True)
+        # return Response(serializer.data)
 class CurrentCompletedClassesWaitingPromotionsAPIView(APIView):
     renderer_classes = [JSONRenderer, BrowsableAPIRenderer]
     serializer_class = ClassLevelListSerializer
