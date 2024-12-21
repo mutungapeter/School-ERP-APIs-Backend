@@ -90,7 +90,8 @@ class Stream(AbstractBaseModel):
     def __str__(self):
         return self.name
 class ClassLevel(AbstractBaseModel):
-    form_level = models.ForeignKey(FormLevel, on_delete=models.CASCADE)
+    name = models.CharField(max_length=10,default="Default Level")
+    level = models.IntegerField(default=1)
     stream = models.ForeignKey(Stream, on_delete=models.SET_NULL, null=True, blank=True)
     calendar_year = models.IntegerField(
     validators=[MinValueValidator(1900), MaxValueValidator(current_year + 10)],
@@ -98,12 +99,12 @@ class ClassLevel(AbstractBaseModel):
     null=True
     )
     class Meta:
-        unique_together = ('stream', 'form_level', 'calendar_year') 
+        unique_together = ('name', 'stream', 'calendar_year') 
 
 
         
     def __str__(self):
-        return f"{self.form_level} {self.stream}- {self.calendar_year}"
+        return f"{self.name} {self.stream}- {self.calendar_year}"
     
 class GradingConfig(AbstractBaseModel):
     grade = models.CharField(max_length=255)

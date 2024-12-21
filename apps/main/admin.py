@@ -15,7 +15,7 @@ class SubjectCategoryAdmin(admin.ModelAdmin):
 
 admin.site.register(SubjectCategory, SubjectCategoryAdmin)
 class ClassLevelAdmin(admin.ModelAdmin):
-    list_display = ('id', 'stream', 'form_level', 'calendar_year' )
+    list_display = ('id', 'stream', 'calendar_year' )
 
 admin.site.register(ClassLevel, ClassLevelAdmin)
 class StreamAdmin(admin.ModelAdmin):

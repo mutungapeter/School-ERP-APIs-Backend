@@ -147,17 +147,17 @@ class StudentAPIView(APIView):
         serializer = StudentSerializer(data=data)
         if serializer.is_valid():
             student = serializer.save()
-            form_level = student.class_level.form_level.level
-            print("form_level:", form_level)
+            level = student.class_level.level
+            print("form_level:", level)
             print("student:", student)
-            if form_level <= 2:
+            if level <= 2:
                 assign_all_subjects(student)
-            elif form_level == 3:
+            elif level == 3:
                 core_subjects = Subject.objects.filter(subject_type='Core')
-                print(f"Form level {form_level}: Core subjects found: {core_subjects}")
+                print(f"Form level {level}: Core subjects found: {core_subjects}")
                 assign_core_subjects(student, core_subjects)
-            elif form_level == 4:
-                print(f"Form level {form_level}: Retaining current subjects")
+            elif level == 4:
+                print(f"Form level {level}: Retaining current subjects")
                 retain_current_student_subjects(student)
             return Response(serializer.data, status=status.HTTP_201_CREATED)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
@@ -182,8 +182,8 @@ class StudentAPIView(APIView):
         serializer = StudentSerializer(student, data=request.data, partial=True) 
         if serializer.is_valid():
             updated_student = serializer.save()  
-            form_level = student.class_level.form_level.level
-            if form_level <= 2:
+            level = student.class_level.level
+            if level <= 2:
                 assign_all_subjects(student)
             else:
                 core_subjects = Subject.objects.filter(subject_type='Core')
@@ -322,7 +322,7 @@ class UploadStudentsAPIView(APIView):
                         continue
 
                    
-                    form_level = class_level.form_level.level
+                    level = class_level.level
 
                    
                     student = Student.objects.create(
@@ -337,7 +337,7 @@ class UploadStudentsAPIView(APIView):
                         
                     )
 
-                    if form_level <= 2:
+                    if level <= 2:
                         assign_all_subjects(student)
                     else:
                         core_subjects = Subject.objects.filter(subject_type='Core')
@@ -697,23 +697,23 @@ class PromoteStudentsAPIView(APIView):
     renderer_classes = [JSONRenderer, BrowsableAPIRenderer]
     serializer_class = PromoteStudentsSerializer
     def get(self, request, *args, **kwargs):
-        source_form_level = request.query_params.get('source_form_level')
+        class_level = request.query_params.get('source_class_level')
         year = request.query_params.get('year')
         
-        if not source_form_level or not year:
+        if not class_level or not year:
             return Response({
-                "error": "Please provide a form level and a year."
+                "error": "Please provide a class and a year."
             }, status=400)
 
         queryset = None
-        form_level = get_object_or_404(FormLevel, pk=source_form_level)
+        source_class_level = get_object_or_404(ClassLevel, pk=class_level)
         queryset = PromotionRecord.objects.filter(
-            source_class_level__form_level=source_form_level,
+            source_class_level=source_class_level,
             year=year
         ).order_by('created_at')
         if not queryset.exists():
             return Response(
-                {"message": f"No Promotion records found for {form_level.name}  for the year    {year}."},
+                {"message": f"No Promotion records found for {source_class_level.name}  for the year    {year}."},
                 status=status.HTTP_404_NOT_FOUND
             )
         page = request.query_params.get('page')
@@ -796,14 +796,14 @@ class PromoteStudentsAPIView(APIView):
                 student.current_term = current_active_term
                 student.save()
 
-                form_level = target_class_level.form_level.level
-                print("form_level", form_level)
-                if form_level <= 2:
+                level = target_class_level.level
+                print("level", level)
+                if level <= 2:
                     assign_all_subjects(student)
-                elif form_level == 3:
+                elif level == 3:
                     core_subjects = Subject.objects.filter(subject_type='Core', class_levels=target_class_level)
                     assign_core_subjects(student, core_subjects)
-                elif form_level == 4:
+                elif level == 4:
                     retain_current_student_subjects(student)
     
         return Response({"message": "Students successfully promoted"}, status=status.HTTP_201_CREATED)
@@ -1047,9 +1047,9 @@ class AssignElectivesAPIView(APIView):
         except Student.DoesNotExist:
             return Response({"error": "Student not found."}, status=status.HTTP_404_NOT_FOUND)
         
-        form_level = student.class_level.form_level.level
-        if form_level not in [3, 4]:
-            return Response({"error": f"Electives can only be assigned to students in form levels 3 or 4. Current form level: {form_level}"}, status=status.HTTP_400_BAD_REQUEST)
+        level = student.class_level.level
+        if level not in [3, 4]:
+            return Response({"error": f"Electives can only be assigned to students in form levels 3 or 4. Current form level: {level}"}, status=status.HTTP_400_BAD_REQUEST)
         
      
         electives = request.data.get('electives', [])
@@ -1081,9 +1081,9 @@ class AssignElectivesAPIView(APIView):
         except Student.DoesNotExist:
             return Response({"error": "Student not found."}, status=status.HTTP_404_NOT_FOUND)
 
-        form_level = student.class_level.form_level.level
-        if form_level not in [3, 4]:
-            return Response({"error": f"Electives can only be assigned to students in form levels 3 or 4. Current form level: {form_level}"}, status=status.HTTP_400_BAD_REQUEST)
+        level = student.class_level.level
+        if level not in [3, 4]:
+            return Response({"error": f"Electives can only be assigned to students in form levels 3 or 4. Current form level: {level}"}, status=status.HTTP_400_BAD_REQUEST)
 
         electives = request.data.get('electives', [])
         if not electives:
