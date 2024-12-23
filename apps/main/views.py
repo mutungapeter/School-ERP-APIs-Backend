@@ -777,15 +777,18 @@ class TermsAPIView(APIView):
                return Response({"error": "Term not found."}, status=status.HTTP_404_NOT_FOUND)
         else:
             terms = Term.objects.all()
-            class_level = ClassLevel.objects.get(pk=class_level_id)
+            
             if class_level_id:
-                terms = terms.filter(class_level_id=class_level_id)
+                try:
+                    class_level = ClassLevel.objects.get(pk=class_level_id)
+                    terms = terms.filter(class_level_id=class_level_id)
+                except ClassLevel.DoesNotExist:
+                    return Response({"error": f"Class level  {class_level.name}-{class_level.calendar_year} does not exist."}, status=status.HTTP_404_NOT_FOUND)
+
                 if not terms.exists():
-                    return Response({"error": f"No terms found in the selected class{class_level.name}-{class_level.calendar_year}" })
-            if not terms.exists():
-                return Response({"error": f"No subjects to show"}, 
-                            status=status.HTTP_404_NOT_FOUND    
-                                )
+                    return Response({"error": f"No terms found for the specified class level."}, status=status.HTTP_404_NOT_FOUND)
+                        
+                                
             terms = terms.order_by('-created_at')
             page = request.query_params.get('page')
             page_size = request.query_params.get('page_size')
