@@ -13,6 +13,7 @@ class SubjectAPIView(APIView):
     renderer_classes = [JSONRenderer, BrowsableAPIRenderer]
     serializer_class = SubjectSerializer
     def get(self, request, pk=None):
+        subject_name = request.query_params.get('subject_name')
         user_role = request.user.role 
         if pk:
             try:
@@ -31,6 +32,16 @@ class SubjectAPIView(APIView):
             else:
                 teacher = Teacher.objects.get(user=request.user)
                 subjects = Subject.objects.filter(teachersubject__teacher=teacher).distinct()
+                
+            if subject_name:
+                subjects = subjects.filter(subject_name__icontains=subject_name)
+           
+                if not subjects.exists():
+                    return Response({"error": f"No subjects found with the name '{subject_name}'."}, status=status.HTTP_404_NOT_FOUND)
+            if not subjects.exists():
+                return Response({"error": f"No subjects to show"}, 
+                            status=status.HTTP_404_NOT_FOUND    
+                                )
             subjects = subjects.order_by('-created_at')
             page = request.query_params.get('page')
             page_size = request.query_params.get('page_size')
@@ -47,14 +58,19 @@ class SubjectAPIView(APIView):
 
     def post(self, request):
         subject_name = request.data.get('subject_name')
+        class_level_ids = request.data.get('classes', [])
         if Subject.objects.filter(subject_name=subject_name).exists():
             return Response({"error": "A subject with this name already exists."}, status=status.HTTP_400_BAD_REQUEST)
-
+        if not class_level_ids:
+            return Response({"error": "A class should be selected"},
+                            status=status.HTTP_400_BAD_REQUEST)
         serializer = SubjectSerializer(data=request.data)
         if serializer.is_valid():
             subject = serializer.save()
-            all_class_levels = ClassLevel.objects.all()
-            subject.class_levels.set(all_class_levels)
+            # all_class_levels = ClassLevel.objects.all()
+            # subject.class_levels.set(all_class_levels)
+            if class_level_ids:
+                subject.class_levels.set(ClassLevel.objects.filter(id__in=class_level_ids))
             return Response(SubjectSerializer(subject).data, status=status.HTTP_201_CREATED)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
@@ -62,12 +78,18 @@ class SubjectAPIView(APIView):
         try:
             subject = Subject.objects.get(pk=pk)
             new_subject_name = request.data.get('subject_name')
+            class_level_ids = request.data.get('classes', [])
             if Subject.objects.filter(subject_name=new_subject_name).exclude(pk=pk).first():
                 return Response({"error": "A Subject with that name  already exists."},
                         status=status.HTTP_400_BAD_REQUEST)
+            if not class_level_ids:
+                return Response({"error": "At least one class level should be selected."},
+                            status=status.HTTP_400_BAD_REQUEST)
             serializer = SubjectSerializer(subject, data=request.data)
             if serializer.is_valid():
-                serializer.save()
+                updated_subject = serializer.save()
+
+                updated_subject.class_levels.set(ClassLevel.objects.filter(id__in=class_level_ids))
                 return Response( {
                         "message": "Subject updated successfully",
                         "data": serializer.data  
@@ -555,7 +577,7 @@ class CurrentCompletedClassesWaitingPromotionsAPIView(APIView):
         class_levels = class_levels.filter(
             terms__status='Ended'
         ).exclude(
-            form_level__level=4
+            level=4
         ).distinct()
 
 
@@ -591,7 +613,7 @@ class GraduatingClassAPIView(APIView):
     def get(self, request):
         user_role = request.user.role
         
-        graduating_class_levels = ClassLevel.objects.filter(form_level__level=4)
+        graduating_class_levels = ClassLevel.objects.filter(level=4)
         print("graduating_class_levels", graduating_class_levels)
        
         if user_role in ['Admin', 'Principal']:
@@ -744,6 +766,7 @@ class TermsAPIView(APIView):
     renderer_classes = [JSONRenderer, BrowsableAPIRenderer]
     serializer_class = TermSerializer
     def get(self, request, pk=None):
+        class_level_id = request.query_params.get('class_level')
         user_role = request.user.role 
         if pk:
             try:
@@ -753,8 +776,17 @@ class TermsAPIView(APIView):
             except Subject.DoesNotExist:
                return Response({"error": "Term not found."}, status=status.HTTP_404_NOT_FOUND)
         else:
-           
-            terms = Term.objects.all().order_by('-created_at')
+            terms = Term.objects.all()
+            class_level = ClassLevel.objects.get(pk=class_level_id)
+            if class_level_id:
+                terms = terms.filter(class_level_id=class_level_id)
+                if not terms.exists():
+                    return Response({"error": f"No terms found in the selected class{class_level.name}-{class_level.calendar_year}" })
+            if not terms.exists():
+                return Response({"error": f"No subjects to show"}, 
+                            status=status.HTTP_404_NOT_FOUND    
+                                )
+            terms = terms.order_by('-created_at')
             page = request.query_params.get('page')
             page_size = request.query_params.get('page_size')
             

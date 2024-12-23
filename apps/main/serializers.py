@@ -11,16 +11,6 @@ class SubjectCategorySerializer(serializers.ModelSerializer):
 
         
 
-# class TermCreateSerializer(serializers.ModelSerializer):
-#     class_levels = serializers.PrimaryKeyRelatedField(
-#         queryset=ClassLevel.objects.all(),
-#         many=True,  
-#         required=False  
-#     ) 
-#     class Meta:
-#         model = Term
-#         fields = ['term', 'start_date', 'end_date']  
-
 class FormLevelListSerializer(serializers.ModelSerializer):
 
     streams_count = serializers.SerializerMethodField()

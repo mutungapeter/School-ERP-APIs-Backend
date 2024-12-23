@@ -90,8 +90,8 @@ class Stream(AbstractBaseModel):
     def __str__(self):
         return self.name
 class ClassLevel(AbstractBaseModel):
-    name = models.CharField(max_length=10,default="Default Level")
-    level = models.IntegerField(default=1)
+    name = models.CharField(max_length=10)
+    level = models.IntegerField()
     stream = models.ForeignKey(Stream, on_delete=models.SET_NULL, null=True, blank=True)
     calendar_year = models.IntegerField(
     validators=[MinValueValidator(1900), MaxValueValidator(current_year + 10)],
