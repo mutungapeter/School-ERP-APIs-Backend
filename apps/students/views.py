@@ -700,10 +700,12 @@ class PromoteStudentsAPIView(APIView):
         class_level = request.query_params.get('source_class_level')
         year = request.query_params.get('year')
         
+        print("class_level", class_level)
+        print("year", year)
         if not class_level or not year:
             return Response({
                 "error": "Please provide a class and a year."
-            }, status=400)
+            }, status=status.HTTP_400_BAD_REQUEST)
 
         queryset = None
         source_class_level = get_object_or_404(ClassLevel, pk=class_level)
@@ -713,7 +715,7 @@ class PromoteStudentsAPIView(APIView):
         ).order_by('created_at')
         if not queryset.exists():
             return Response(
-                {"message": f"No Promotion records found for {source_class_level.name}  for the year    {year}."},
+                {"error": f"No Promotion records found for {source_class_level.name}  for the year    {year}."},
                 status=status.HTTP_404_NOT_FOUND
             )
         page = request.query_params.get('page')
@@ -938,7 +940,7 @@ class PromoteStudentsToAlumniAPIView(APIView):
         ).order_by('created_at','student__first_name', 'student__last_name')
         if not queryset.exists():
             return Response(
-                {"message": f"No alumni records found for the year {year}."},
+                {"error": f"No alumni records found for the year {year}."},
                 status=status.HTTP_404_NOT_FOUND
             )
         page = request.query_params.get('page')

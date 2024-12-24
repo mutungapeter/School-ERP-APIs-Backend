@@ -535,15 +535,19 @@ class AllClassLevelsAPIView(APIView):
 
     def get(self, request):
         user_role = request.user.role
-
+        calendar_year = request.query_params.get("calendar_year")
+        print("calendar_year", calendar_year)
         
-        if user_role in ['Admin', 'Principal','Secretary']:
+        if user_role in ['Admin', 'Principal','Secretary','Teacher']:
             class_levels = ClassLevel.objects.all()
-        else:
-            teacher = Teacher.objects.get(user=request.user)
-            class_levels = ClassLevel.objects.filter(
-                teachersubject__teacher=teacher
-            ).distinct()
+            print("class_levels", class_levels)
+
+        if calendar_year:
+            class_levels = class_levels.filter(calendar_year=calendar_year)
+            if not class_levels.exists():
+                return Response({"error": f"No classes found for the given year {calendar_year}"},
+                                status=status.HTTP_404_NOT_FOUND
+                        )
         class_levels=class_levels.order_by('-created_at')
         page = request.query_params.get('page')
         page_size = request.query_params.get('page_size')

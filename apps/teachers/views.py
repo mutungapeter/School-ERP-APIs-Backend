@@ -45,9 +45,11 @@ class TeacherAPIView(APIView):
                 return Response(serializer.data)
             except Teacher.DoesNotExist:
                 return Response({"error": "Teacher profile not found for the current user."}, status=status.HTTP_404_NOT_FOUND)
-        if request.user.role in ['Admin', 'Principal']:
+        if request.user.role in ['Admin', 'Principal',"Teacher"]:
             if staff_no:
                 teachers = Teacher.objects.filter(staff_no=staff_no)
+                if not teachers.exists():
+                    return Response({"error": f"Teacher with staff number {staff_no} not found."}, status=status.HTTP_404_NOT_FOUND)
             elif teacher_id:
                 teachers = Teacher.objects.filter(id=teacher_id)
             else:
