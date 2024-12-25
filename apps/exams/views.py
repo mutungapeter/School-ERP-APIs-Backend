@@ -721,11 +721,16 @@ class StudentPerformanceView(APIView):
             )
         term = Term.objects.get(id=term_id)
         queryset = MarksData.objects.filter(
-                # student_subject__student=student,
-                student = student,
+                student_subject__student=student,
+                # student = student,
                 term__id=term_id
                 )
         first_marks_data = queryset.first()
+        if not first_marks_data:
+            return Response(
+                {"error": f"No marks data found for student {student.id} in term {term.id}."},
+                status=status.HTTP_404_NOT_FOUND
+            )
         mean_grade_data = MarksData.calculate_mean_grade(student=first_marks_data.student, term=term_id)
             
         students_in_class = Student.objects.filter(class_level=first_marks_data.student.class_level)

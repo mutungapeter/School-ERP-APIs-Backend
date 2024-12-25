@@ -10,8 +10,8 @@ class DataPagination(PageNumberPagination):
     max_page_size = 100
 
 def assign_all_subjects(student):
-    all_subjects = Subject.objects.all()
     class_level = student.class_level  
+    all_subjects = Subject.objects.filter(class_levels=class_level)
     for subject in all_subjects:
         StudentSubject.objects.get_or_create(
             student=student,
@@ -19,10 +19,12 @@ def assign_all_subjects(student):
             class_level=class_level
         )
 
-def assign_core_subjects(student, core_subjects):
-    class_level = student.class_level 
-    filtered_core_subjects = core_subjects.filter(class_levels=class_level) 
-    for subject in filtered_core_subjects:
+def assign_core_subjects(student):
+    class_level = student.class_level
+    print('class_level in assign_core subjects:', class_level)
+    core_subjects = Subject.objects.filter(subject_type='Core', class_levels=class_level)
+    print('core_subjects:', core_subjects)
+    for subject in core_subjects:
         if not StudentSubject.objects.filter(student=student, subject=subject, class_level=class_level).exists():
             StudentSubject.objects.create(
                 student=student,
@@ -30,26 +32,24 @@ def assign_core_subjects(student, core_subjects):
                 class_level=class_level
             )
 
-def assign_electives(student, selected_electives):
-    
-    StudentSubject.objects.filter(student=student, subject__subject_type='Elective').delete()
 
-    class_level = student.class_level 
-    for elective in selected_electives:
-        StudentSubject.objects.get_or_create(
-            student=student,
-            subject=elective,
-            class_level=class_level
-        )
-
-def retain_current_student_subjects(student):
-    current_student_subjects = StudentSubject.objects.filter(student=student)
-    class_level = student.class_level  
-
-    for student_subject in current_student_subjects:
-        if not StudentSubject.objects.filter(student=student, subject=student_subject.subject, class_level=class_level).exists():
+def assign_electives(student, elective_subjects):
+    class_level = student.class_level
+    for elective in elective_subjects:
+        if not StudentSubject.objects.filter(student=student, subject=elective, class_level=class_level).exists():
             StudentSubject.objects.create(
                 student=student,
-                subject=student_subject.subject,
+                subject=elective,
                 class_level=class_level
             )
+def retain_current_student_subjects(student):
+    class_level = student.class_level  
+    final_student_subjects = Subject.objects.filter(subject_type='Core', class_levels=class_level)
+    for subject in final_student_subjects:
+        if not StudentSubject.objects.filter(student=student, subject=subject, class_level=class_level).exists():
+            StudentSubject.objects.create(
+                student=student,
+                subject=subject,
+                class_level=class_level
+            )
+   

@@ -9,7 +9,8 @@ UploadStudentsAPIView,
 PromoteStudentsAPIView,
 StudentAPIView,
 StudentSubjectAPIView,
-FilterStudentsAPIView
+FilterStudentsAPIView,
+StudentSubjectsListAPIView
 
     ) 
 
@@ -20,7 +21,8 @@ urlpatterns = [
     path('upload-students/', UploadStudentsAPIView.as_view(), name='upload-students-list'),
     path('students/<int:pk>/', StudentAPIView.as_view(), name='student-detail-update-delete'),
     
-    path('student-subjects/', StudentSubjectAPIView.as_view(), name='student-subject-list'),
+    path('student-subjects/', StudentSubjectAPIView.as_view(), name='student-subjects'),
+    path('student-subjects-list/', StudentSubjectsListAPIView.as_view(), name='student-subjects-list'),
     path('student-subjects/<int:student_id>/', StudentSubjectAPIView.as_view(), name='student-subject-by-student'),
     path('student-subjects/<int:pk>/', StudentSubjectAPIView.as_view(), name='student-subject-detail'),
     
