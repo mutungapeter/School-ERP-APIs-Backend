@@ -122,11 +122,11 @@ class GradingConfig(AbstractBaseModel):
     
 class MeanGradeConfig(AbstractBaseModel):
     grade = models.CharField(max_length=255)
-    min_mean_marks = models.FloatField(default=0)
-    max_mean_marks = models.FloatField(default=0)
+    min_mean_points = models.FloatField(default=0)
+    max_mean_points = models.FloatField(default=0)
     remarks = models.CharField(max_length=255)
     principal_remarks = models.CharField(max_length=255, null=True, blank=True)
-    points = models.IntegerField(default=0)
+   
 
     class Meta:
         unique_together = ('grade',)

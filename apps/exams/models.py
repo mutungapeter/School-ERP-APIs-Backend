@@ -106,6 +106,9 @@ class MarksData(models.Model):
         total_marks = sum(subject.total_score for subject in subjects_for_calculation)
         grand_total = len(subjects_for_calculation) * 100
         total_points = sum(subject.points() for subject in subjects_for_calculation)
+        mean_points = total_points / len(subjects_for_calculation) if subjects_for_calculation else 0
+        mean_points = round(mean_points, 2) if mean_points else 0.00
+       
         mean_marks = total_marks / len(subjects_for_calculation) if subjects_for_calculation else 0
         if mean_marks is not None:
             mean_marks = round(mean_marks, 2)
@@ -114,15 +117,17 @@ class MarksData(models.Model):
 
         
         mean_grade_config = MeanGradeConfig.objects.filter(
-            Q(min_mean_marks__lte=mean_marks) &
-            Q(max_mean_marks__gte=mean_marks)
+            Q(min_mean_points__lte=mean_points) &
+            Q(max_mean_points__gte=mean_points)
         ).first()
         kcpe_average = student.kcpe_marks / 5 if student.kcpe_marks else 0
         if mean_grade_config:
             return {
                 "mean_grade": str(mean_grade_config.grade),
-                "mean_points": float(mean_grade_config.points),
+                # "mean_points": float(mean_grade_config.points),
+                "mean_points": mean_points,
                 "mean_remarks": str(mean_grade_config.remarks),
+                "principal_remarks": str(mean_grade_config.principal_remarks),
                 "mean_marks": f"{mean_marks:.2f}",
                 "total_points": total_points,  
                 "total_marks": total_marks,    
@@ -134,6 +139,7 @@ class MarksData(models.Model):
             "mean_grade": "No Grade",
             "mean_points": 0,
             "mean_remarks": "No remarks",
+            "principal_remarks": "No principal remarks",
             "mean_marks": f"{mean_marks:.2f}" if mean_marks is not None else "No marks",
             "total_points": 0,
             "total_marks": 0,

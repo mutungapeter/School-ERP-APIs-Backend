@@ -34,7 +34,7 @@ class GradingConfigAdmin(admin.ModelAdmin):
 admin.site.register(GradingConfig, GradingConfigAdmin)
 
 class MeanGradeConfigAdmin(admin.ModelAdmin):
-    list_display = ('min_mean_marks','max_mean_marks',  'points' ,'grade',  'remarks',)
+    list_display = ('min_mean_points','max_mean_points' ,'grade',  'remarks', 'principal_remarks')
 
 admin.site.register(MeanGradeConfig, MeanGradeConfigAdmin)
 
