@@ -15,10 +15,11 @@ class SubjectAPIView(APIView):
     def get(self, request, pk=None):
         subject_name = request.query_params.get('subject_name')
         user_role = request.user.role 
+        print("User role:", user_role)
         if pk:
             try:
                 subject = Subject.objects.get(pk=pk)
-                if user_role in ['Admin', 'Principal'] or TeacherSubject.objects.filter(teacher__user=request.user, subject=subject).exists():
+                if request.user.role in ['Admin', 'Principal'] or TeacherSubject.objects.filter(teacher__user=request.user, subject=subject).exists():
                     serializer = ListSubjectSerializer(subject)
                     return Response(serializer.data)
                 else:
@@ -29,8 +30,12 @@ class SubjectAPIView(APIView):
         else:
             if user_role in ['Admin', 'Principal']:
                 subjects = Subject.objects.all()
-            elif user_role == 'Teacher':
-                teacher = Teacher.objects.get(user=request.user)
+            elif request.user.role == 'Teacher':
+                try:
+                    teacher = Teacher.objects.get(user=request.user)
+                except Teacher.DoesNotExist:
+                    return Response({"error": "Teacher profile not found for this user."}, status=status.HTTP_404_NOT_FOUND)
+                print("Teacher retrieved:", teacher)
                 subjects = Subject.objects.filter(teachersubject__teacher=teacher).distinct()
                 
             if subject_name:
