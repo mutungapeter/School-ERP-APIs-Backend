@@ -29,7 +29,7 @@ class SubjectAPIView(APIView):
         else:
             if user_role in ['Admin', 'Principal']:
                 subjects = Subject.objects.all()
-            else:
+            elif user_role == 'Teacher':
                 teacher = Teacher.objects.get(user=request.user)
                 subjects = Subject.objects.filter(teachersubject__teacher=teacher).distinct()
                 
