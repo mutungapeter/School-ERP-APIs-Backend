@@ -35,7 +35,7 @@ class MarksData(models.Model):
         
         ).first()
    
-        return grade_config.grade if grade_config else "_"
+        return grade_config.grade if grade_config else "No Grade"
     
     def points(self):
         subject_category = self.student_subject.subject.category
@@ -45,6 +45,10 @@ class MarksData(models.Model):
             Q(max_marks__gte=self.total_score)
         
         ).first()
+        if grade_config:
+            print(f"Points for {self.student_subject.subject.subject_name}: {grade_config.points}")
+        else:
+            print(f"No grade config found for {self.student_subject.subject.subject_name}")
         return grade_config.points if grade_config else 0
     
     def remarks(self):
@@ -56,7 +60,7 @@ class MarksData(models.Model):
         
         ).first()
    
-        return grade_config.remarks if grade_config else "_"
+        return grade_config.remarks if grade_config else "No remarks"
     
     @classmethod
     def calculate_mean_grade(cls, student, term):
@@ -109,7 +113,7 @@ class MarksData(models.Model):
         total_points = sum(float(subject.points()) for subject in subjects_for_calculation)
         mean_points = total_points / len(subjects_for_calculation) if subjects_for_calculation else 0
         mean_points = round(mean_points, 2) if mean_points else 0.00
-       
+        print(f"Mean points: {mean_points}")
         mean_marks = total_marks / len(subjects_for_calculation) if subjects_for_calculation else 0
         if mean_marks is not None:
             mean_marks = round(mean_marks, 2)
@@ -121,6 +125,12 @@ class MarksData(models.Model):
             Q(min_mean_points__lte=mean_points) &
             Q(max_mean_points__gte=mean_points)
         ).first()
+
+        if mean_grade_config:
+            print(f"Found grade config: {mean_grade_config.grade} for mean points: {mean_points}")
+        else:
+            print(f"No grade config found for mean points: {mean_points}")
+
         kcpe_average = student.kcpe_marks / 5 if student.kcpe_marks else 0
         if mean_grade_config:
             return {
