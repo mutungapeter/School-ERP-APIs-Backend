@@ -111,16 +111,18 @@ class MarksData(models.Model):
         grand_total = len(subjects_for_calculation) * 100
 
         total_points = sum(float(subject.points()) for subject in subjects_for_calculation)
-        mean_points = total_points / len(subjects_for_calculation) if subjects_for_calculation else 0
-        mean_points = round(mean_points, 2) if mean_points else 0.00
-        print(f"Mean points: {mean_points}")
+        mean_points = total_points / len(subjects_for_calculation) if subjects_for_calculation else 0.00
+        # mean_points = round(mean_points, 2) if mean_points else 0.00
+        # print(f"Mean points: {mean_points}")
         mean_marks = total_marks / len(subjects_for_calculation) if subjects_for_calculation else 0
         if mean_marks is not None:
             mean_marks = round(mean_marks, 2)
         else:
             mean_marks = "No marks"
 
-        
+        if mean_points is not None:
+            mean_points = round(mean_points, 2)
+        print(f"Mean points: {mean_points}")
         mean_grade_config = MeanGradeConfig.objects.filter(
             Q(min_mean_points__lte=mean_points) &
             Q(max_mean_points__gte=mean_points)
