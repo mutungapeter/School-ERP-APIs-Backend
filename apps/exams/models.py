@@ -35,7 +35,7 @@ class MarksData(models.Model):
         
         ).first()
    
-        return grade_config.grade if grade_config else "No Grade"
+        return grade_config.grade if grade_config else "_"
     
     def points(self):
         subject_category = self.student_subject.subject.category
@@ -45,7 +45,7 @@ class MarksData(models.Model):
             Q(max_marks__gte=self.total_score)
         
         ).first()
-        return grade_config.points if grade_config else "No Points for the marks range"
+        return grade_config.points if grade_config else 0
     
     def remarks(self):
         subject_category = self.student_subject.subject.category
@@ -56,7 +56,7 @@ class MarksData(models.Model):
         
         ).first()
    
-        return grade_config.remarks if grade_config else "No Remarks"
+        return grade_config.remarks if grade_config else "_"
     
     @classmethod
     def calculate_mean_grade(cls, student, term):
@@ -66,7 +66,7 @@ class MarksData(models.Model):
         kiswahili_mark = all_marks.filter(student_subject__subject__subject_name="Kiswahili").first()
 
         
-        student_level = student.class_level.form_level.level
+        student_level = student.class_level.level
         if student_level >= 3:
             
             if english_mark and kiswahili_mark:
@@ -105,7 +105,8 @@ class MarksData(models.Model):
       
         total_marks = sum(subject.total_score for subject in subjects_for_calculation)
         grand_total = len(subjects_for_calculation) * 100
-        total_points = sum(subject.points() for subject in subjects_for_calculation)
+
+        total_points = sum(float(subject.points()) for subject in subjects_for_calculation)
         mean_points = total_points / len(subjects_for_calculation) if subjects_for_calculation else 0
         mean_points = round(mean_points, 2) if mean_points else 0.00
        

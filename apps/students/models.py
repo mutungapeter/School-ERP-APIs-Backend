@@ -41,7 +41,7 @@ class Student(AbstractBaseModel):
 class StudentSubject(AbstractBaseModel):
     student = models.ForeignKey(Student, on_delete=models.CASCADE)
     subject = models.ForeignKey(Subject, on_delete=models.CASCADE)
-    class_level = models.ForeignKey(ClassLevel, on_delete=models.CASCADE ,default=ClassLevel.objects.first)
+    class_level = models.ForeignKey(ClassLevel, on_delete=models.CASCADE)
 
     class Meta:
         unique_together = ('student', 'subject', 'class_level')
