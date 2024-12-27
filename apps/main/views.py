@@ -456,15 +456,16 @@ class ClassLevelAPIView(APIView):
 
     def put(self, request, pk):
         stream = request.data.get("stream")
-        form_level = request.data.get("form_level")
+        level = request.data.get("level")
         calendar_year=request.data.get('calendar_year')
+        name=request.data.get('name')
 
         try:
             class_level = ClassLevel.objects.get(pk=pk)
         except ClassLevel.DoesNotExist:
             return Response(status=status.HTTP_404_NOT_FOUND)
         existing_class_level_no_stream = ClassLevel.objects.filter(
-            form_level_id=form_level, 
+            name=name,
             calendar_year=calendar_year, 
             stream__isnull=True
             ).exclude(pk=class_level.pk).first()
@@ -482,7 +483,7 @@ class ClassLevelAPIView(APIView):
 
         if stream:
            
-            if ClassLevel.objects.filter(form_level_id=form_level, calendar_year=calendar_year, stream_id=stream).exclude(pk=class_level.pk).exists():
+            if ClassLevel.objects.filter(name=name, calendar_year=calendar_year, stream_id=stream).exclude(pk=class_level.pk).exists():
                 return Response(
                     {"error": "A class level with this form level and stream already exists."},
                     status=status.HTTP_400_BAD_REQUEST
