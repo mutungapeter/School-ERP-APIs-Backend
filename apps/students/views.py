@@ -372,7 +372,7 @@ class UploadStudentsAPIView(APIView):
                         assign_all_subjects(student)
                     else:
                         core_subjects = Subject.objects.filter(subject_type='Core')
-                        assign_core_subjects(student, core_subjects)
+                        assign_core_subjects(student)
 
                     successes.append(f"Student {first_name} {last_name} (Admission: {admission_number}) uploaded successfully.")
 
