@@ -151,15 +151,12 @@ class StudentAPIView(APIView):
             level = student.class_level.level
             print("form_level:", level)
             print("student:", student)
+            print("Type of student:", type(student))
             if level <= 2:
                 assign_all_subjects(student)
-            elif level == 3:
-                core_subjects = Subject.objects.filter(subject_type='Core')
-                print(f"Form level {level}: Core subjects found: {core_subjects}")
-                assign_core_subjects(student, core_subjects)
-            elif level == 4:
-                print(f"Form level {level}: Retaining current subjects")
-                retain_current_student_subjects(student)
+            else:
+                
+                assign_core_subjects(student)
             return Response(serializer.data, status=status.HTTP_201_CREATED)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
@@ -188,7 +185,7 @@ class StudentAPIView(APIView):
                 assign_all_subjects(student)
             else:
                 core_subjects = Subject.objects.filter(subject_type='Core')
-                assign_core_subjects(student, core_subjects)
+                assign_core_subjects(student)
             return Response({"message": "Student updated successfully", "teacher": serializer.data}, status=status.HTTP_200_OK)
         else:
             return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
