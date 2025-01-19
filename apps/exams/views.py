@@ -414,8 +414,12 @@ class ReportFormAPIView(APIView):
             queryset = MarksData.objects.filter(
                 student_subject__student__admission_number=admission_number, 
                 term=term 
-                )
-            
+                ).select_related(
+                'student_subject__subject',
+                'student_subject__student',
+                'term'
+            )
+                        
             if not queryset.exists():
                 return Response(
                     {"error": f"Student with admission number {admission_number} has no marks for the given term."},
