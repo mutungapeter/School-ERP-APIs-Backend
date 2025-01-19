@@ -535,6 +535,43 @@ class ClassLevelAPIView(APIView):
         class_levels.delete()
 
         return Response({"message": f"{class_levels_count} class(es) deleted successfully."}, status=status.HTTP_200_OK)
+
+
+class AllCurrentClassLevelWithActiveTermsAPIView(APIView):
+    renderer_classes = [JSONRenderer, BrowsableAPIRenderer]
+    serializer_class = ClassLevelSerializer
+    def get(self, request, pk=None):
+        user_role = request.user.role 
+        if pk:
+            try:
+                class_level = ClassLevel.objects.get(pk=pk)
+                if request.user.role in ['Admin', 'Principal'] or TeacherSubject.objects.filter(teacher__user=request.user, class_level=class_level).exists():
+                    serializer = ClassLevelListSerializer(class_level)
+                    return Response(serializer.data)
+                else:
+                    return Response({"error": "Class level not assigned to this teacher."}, status=status.HTTP_403_FORBIDDEN)
+
+            except ClassLevel.DoesNotExist:
+                return Response({"error": "Class Level  does not exist."}, status=status.HTTP_404_NOT_FOUND)
+        else:
+            if request.user.role in ['Admin', 'Principal', 'Teacher']:
+                class_levels = ClassLevel.objects.all()
+            class_levels = class_levels.filter(
+                terms__status='Active'  
+            ).distinct()
+            class_levels=class_levels.order_by('-created_at')
+            page = request.query_params.get('page')
+            page_size = request.query_params.get('page_size')
+            
+            if page or page_size:
+                paginator = DataPagination()
+                paginated_class_levels = paginator.paginate_queryset(class_levels, request)
+                serializer = ClassLevelListSerializer(paginated_class_levels, many=True)
+                return paginator.get_paginated_response(serializer.data)
+            else:
+                serializer = ClassLevelListSerializer(class_levels, many=True)
+                return Response(serializer.data)
+
 class AllClassLevelsAPIView(APIView):
     renderer_classes = [JSONRenderer, BrowsableAPIRenderer]
     serializer_class = ClassLevelListSerializer

@@ -38,14 +38,14 @@ class TeacherAPIView(APIView):
             except Teacher.DoesNotExist:
                 return Response({"error": "Teacher not found. Teacher may not have been registered as a teacher."}, status=status.HTTP_404_NOT_FOUND)
 
-        if request.user.role == 'Teacher':
-            try:
-                teacher = Teacher.objects.get(user=request.user)
-                serializer = TeacherListSerializer(teacher)
-                return Response(serializer.data)
-            except Teacher.DoesNotExist:
-                return Response({"error": "Teacher profile not found for the current user."}, status=status.HTTP_404_NOT_FOUND)
-        if request.user.role in ['Admin', 'Principal',"Teacher"]:
+        # if request.user.role == 'Teacher':
+        #     try:
+        #         teacher = Teacher.objects.get(user=request.user)
+        #         serializer = TeacherListSerializer(teacher)
+        #         return Response(serializer.data)
+        #     except Teacher.DoesNotExist:
+        #         return Response({"error": "Teacher profile not found for the current user."}, status=status.HTTP_404_NOT_FOUND)
+        if request.user.role in ['Admin', 'Principal', 'Teacher']:
             if staff_no:
                 teachers = Teacher.objects.filter(staff_no=staff_no)
                 if not teachers.exists():
@@ -54,21 +54,20 @@ class TeacherAPIView(APIView):
                 teachers = Teacher.objects.filter(id=teacher_id)
             else:
                 teachers = Teacher.objects.all()
-                
+
             teachers = teachers.order_by('-created_at')
             page = request.query_params.get('page')
             page_size = request.query_params.get('page_size')
 
             if page or page_size:
                 paginator = DataPagination()
-                paginated_teachers = paginator.paginate_queryset(
-                    teachers, request)
-                serializer = TeacherListSerializer(
-                    paginated_teachers, many=True)
+                paginated_teachers = paginator.paginate_queryset(teachers, request)
+                serializer = TeacherListSerializer(paginated_teachers, many=True)
                 return paginator.get_paginated_response(serializer.data)
             else:
                 serializer = TeacherListSerializer(teachers, many=True)
                 return Response(serializer.data)
+        return Response({"error": "You do not have permission to access this resource."}, status=status.HTTP_403_FORBIDDEN)
     def post(self, request):
         
         if not request.user.is_authenticated:
@@ -302,6 +301,14 @@ class AssignTeacherView(APIView):
 
             subject_instance = Subject.objects.get(id=subject_id)
 
+            existing_assignment = TeacherSubject.objects.filter(subject=subject_instance).exclude(teacher=teacher).first()
+            if existing_assignment:
+                return Response({
+                    "error": f"Subject '{subject_instance.subject_name}' is already assigned to teacher '{existing_assignment.teacher.user.first_name} {existing_assignment.teacher.user.last_name}'. "
+                             "Unassign it first before assigning to another teacher."
+                }, status=status.HTTP_400_BAD_REQUEST)
+
+
             for class_id in class_ids:
 
                 try:
@@ -309,11 +316,23 @@ class AssignTeacherView(APIView):
                 except ClassLevel.DoesNotExist:
                     return Response({"error": f"Class with ID {class_id} not found."}, status=status.HTTP_404_NOT_FOUND)
 
-                if TeacherSubject.objects.filter(teacher=teacher, subject=subject_instance, class_level=class_instance).exists():
+                # if TeacherSubject.objects.filter(teacher=teacher, subject=subject_instance, class_level=class_instance).exists():
+                #     stream_name = class_instance.stream.name if class_instance.stream else ""
+                #     return Response({
+                #         "error": f"Failed to assign subject and class because this Teacher is already assigned to {subject_instance.subject_name} in {class_instance.form_level.name} {stream_name}."
+                #     }, status=status.HTTP_400_BAD_REQUEST)
+                existing_assignment = TeacherSubject.objects.filter(
+                    subject=subject_instance, 
+                    class_level=class_instance
+                ).exclude(teacher=teacher).first()
+
+                if existing_assignment:
                     stream_name = class_instance.stream.name if class_instance.stream else ""
                     return Response({
-                        "error": f"Failed to assign subject and class because this Teacher is already assigned to {subject_instance.subject_name} in {class_instance.form_level.name} {stream_name}."
+                        "error": f"Subject '{subject_instance.subject_name}' is already assigned to teacher '{existing_assignment.teacher.user.first_name} {existing_assignment.teacher.user.last_name}' for {class_instance.name} {stream_name} - {class_instance.calendar_year}. "
+                                 "Unassign it first before assigning to another teacher."
                     }, status=status.HTTP_400_BAD_REQUEST)
+
 
                 serializer = TeacherSubjectCreateSerializer(data={
                     'teacher': teacher.id,
@@ -362,7 +381,18 @@ class AssignTeacherView(APIView):
                 except ClassLevel.DoesNotExist:
                     return Response({"error": f"Class with ID {class_id} not found."}, status=status.HTTP_404_NOT_FOUND)
 
-                
+                existing_assignment = TeacherSubject.objects.filter(
+                    subject=subject_instance, 
+                    class_level=class_instance
+                ).exclude(teacher=teacher).first()
+
+                if existing_assignment:
+                    stream_name = class_instance.stream.name if class_instance.stream else ""
+                    return Response({
+                        "error": f"Subject '{subject_instance.subject_name}' is already assigned to teacher '{existing_assignment.teacher.user.first_name} {existing_assignment.teacher.user.last_name}' for {class_instance.name} {stream_name} - {class_instance.calendar_year}. "
+                                 "Unassign it first before assigning to another teacher."
+                    }, status=status.HTTP_400_BAD_REQUEST)
+
                 new_assignments.append({
                     'teacher': teacher,
                     'subject': subject_instance,

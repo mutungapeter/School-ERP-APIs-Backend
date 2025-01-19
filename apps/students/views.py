@@ -908,7 +908,10 @@ class AssignElectivesAPIView(APIView):
 
         electives = request.data.get('electives', [])
         if not electives:
-            return Response({"error": "No electives were provided."}, status=status.HTTP_400_BAD_REQUEST)
+            class_level = student.class_level
+            StudentSubject.objects.filter(student=student, class_level=class_level, subject__subject_type='Elective').delete()
+            return Response({"message": "Electives unassigned successfully."}, status=status.HTTP_200_OK)
+
 
         elective_subjects = Subject.objects.filter(id__in=electives, subject_type='Elective')
 
