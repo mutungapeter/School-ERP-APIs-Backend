@@ -68,7 +68,7 @@ class ReportMarkListSerializer(serializers.ModelSerializer):
 class MarkSerializer(serializers.ModelSerializer):
     class Meta:
         model = MarksData
-        fields = ['student', 'student_subject', 'cat_mark','term', 'exam_mark']
+        fields = ['student', 'student_subject', 'total_score','term', 'exam_type']
 
  
     

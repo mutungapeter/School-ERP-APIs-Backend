@@ -140,6 +140,7 @@ class UploadMarksAPIView(APIView):
     def post(self, request):
         class_level_id = request.data.get('class_level')
         term_id = request.data.get('term')  
+        exam_type = request.data.get('exam_type')  
         user_role = request.user.role
        
         if user_role in ['Admin', 'Principal']:
@@ -181,7 +182,7 @@ class UploadMarksAPIView(APIView):
             else:
                 return Response({"error": "Invalid file type. Only CSV and Excel are supported."}, status=status.HTTP_400_BAD_REQUEST)
 
-            required_columns = {'admission_number', 'subject_name', 'cat_mark', 'exam_mark'}
+            required_columns = {'admission_number', 'subject_name', 'total_score'}
             missing_columns = required_columns - set(df.columns)
 
             if missing_columns:
@@ -192,18 +193,18 @@ class UploadMarksAPIView(APIView):
             for index, row in df.iterrows():
                 admission_number = row.get('admission_number')
                 subject_name = row.get('subject_name')
-                cat_mark = row.get('cat_mark')
-                exam_mark = row.get('exam_mark')
+                total_score = row.get('total_score')
+                # cat_mark = row.get('cat_mark')
+                # exam_mark = row.get('exam_mark')
                 missing_fields = []
 
                 if pd.isnull(admission_number):
                     missing_fields.append("admission_number")
                 if pd.isnull(subject_name):
                     missing_fields.append("subject_name")
-                if pd.isnull(cat_mark):
-                    missing_fields.append("cat_mark")
-                if pd.isnull(exam_mark):
-                    missing_fields.append("exam_mark")
+                if pd.isnull(total_score):
+                    missing_fields.append("total_score")
+                
                 if missing_fields:
                     errors.append(
                         f"Missing data for fields {', '.join(missing_fields)} in row {row.to_dict()}."
@@ -239,7 +240,7 @@ class UploadMarksAPIView(APIView):
                     continue
 
 
-                if MarksData.objects.filter(student=student, student_subject=student_subject, term_id=term_id).exists():
+                if MarksData.objects.filter(student=student, student_subject=student_subject, term_id=term_id, exam_type=exam_type).exists():
                     errors.append(f"Marks already recorded for student {admission_number} in term {term_id} for subject {subject_name}.")
                     continue
 
@@ -250,8 +251,8 @@ class UploadMarksAPIView(APIView):
                     student=student,
                     student_subject=student_subject,
                     term_id=term_id,
-                    cat_mark=cat_mark,
-                    exam_mark=exam_mark
+                    total_score=total_score,
+                    exam_type=exam_type
                 )
                 successes.append(f"Marks uploaded for student {admission_number} in subject {subject_name}.")
             response_data = {}
@@ -279,7 +280,7 @@ class FilterMarksDataView(APIView):
         subject_id = request.query_params.get('subject')
         class_level_id = request.query_params.get('class_level')
         admission_number = request.query_params.get('admission_number')
-
+        exam_type = request.query_params.get('exam_type')
         if not term_id:
             return Response(
                 {"error": "Term is required for filtering."},
@@ -302,7 +303,7 @@ class FilterMarksDataView(APIView):
                     {"error": f"Student with admission number {admission_number} not found."},
                     status=status.HTTP_404_NOT_FOUND,
                 )
-            queryset = MarksData.objects.filter(student=student, term=term).select_related(
+            queryset = MarksData.objects.filter(student=student, term=term, exam_type=exam_type).select_related(
                 "student", "student_subject__subject", "student_subject__class_level", "term"
             )
 
@@ -315,7 +316,7 @@ class FilterMarksDataView(APIView):
                     status=status.HTTP_404_NOT_FOUND,
                 )
             if queryset is None:
-                queryset = MarksData.objects.filter(term=term, student_subject__class_level=class_level).select_related(
+                queryset = MarksData.objects.filter(term=term, student_subject__class_level=class_level, exam_type=exam_type).select_related(
                     "student", "student_subject__subject", "student_subject__class_level", "term"
                 )
             else:
@@ -330,7 +331,7 @@ class FilterMarksDataView(APIView):
                     status=status.HTTP_404_NOT_FOUND,
                 )
             if queryset is None:
-                queryset = MarksData.objects.filter(term=term, student_subject__subject=subject).select_related(
+                queryset = MarksData.objects.filter(term=term, student_subject__subject=subject, exam_type=exam_type).select_related(
                     "student", "student_subject__subject", "student_subject__class_level", "term"
                 )
             else:
@@ -356,7 +357,7 @@ class ReportFormAPIView(APIView):
         admission_number = request.query_params.get('admission_number')
         class_level_id = request.query_params.get('class_level')
         term_id = request.query_params.get("term")
-        
+        exam_type = request.query_params.get('exam_type')
         
         if (admission_number or class_level_id) and not term_id:
             return Response(
@@ -373,7 +374,11 @@ class ReportFormAPIView(APIView):
 
        
         students_data = []
-        
+        if (admission_number or class_level_id or term_id) and not exam_type:
+            return Response(
+                {"error": "Exam type is needed in order to generate the report forms."},
+                status=status.HTTP_400_BAD_REQUEST
+            )
         if not admission_number and not class_level_id:
             return Response(
                 {"error": "Please provide either an admission number and term or a class level and term to retrieve report data."},
@@ -413,7 +418,8 @@ class ReportFormAPIView(APIView):
                 )
             queryset = MarksData.objects.filter(
                 student_subject__student__admission_number=admission_number, 
-                term=term 
+                term=term,
+                exam_type=exam_type
                 ).select_related(
                 'student_subject__subject',
                 'student_subject__student',
@@ -433,7 +439,11 @@ class ReportFormAPIView(APIView):
                     status=status.HTTP_404_NOT_FOUND
                 )
             student = Student.objects.filter(admission_number=admission_number).first()
-            mean_grade_data = MarksData.calculate_mean_grade(student=first_marks_data.student, term=term_id)
+            mean_grade_data = MarksData.calculate_mean_grade(
+                student=first_marks_data.student,
+                term=term_id,
+                exam_type=exam_type
+            )
             
             students_in_class = Student.objects.filter(class_level=first_marks_data.student.class_level)
             mean_marks = []
@@ -441,7 +451,11 @@ class ReportFormAPIView(APIView):
             for class_student in students_in_class:
                 student_queryset = MarksData.objects.filter(student=class_student)
                 if student_queryset:
-                    mean_grade_class_student = MarksData.calculate_mean_grade(class_student, term=term_id)
+                    mean_grade_class_student = MarksData.calculate_mean_grade(
+                    class_student, 
+                    term=term_id,
+                    exam_type=exam_type
+                )
                     mean_mark = mean_grade_class_student.get('mean_marks')
                     if mean_mark is not None:
                         mean_marks.append({
@@ -494,7 +508,11 @@ class ReportFormAPIView(APIView):
 
             mean_marks = []
             for student in students_in_class:
-                queryset = MarksData.objects.filter(student=student, term__id=term_id)
+                queryset = MarksData.objects.filter(
+                    student=student,
+                    term__id=term_id,
+                    exam_type=exam_type
+                )
                 if not queryset.exists():
                     continue            
                 term_data = []
@@ -509,7 +527,11 @@ class ReportFormAPIView(APIView):
                             "mean_marks": "N/A"
                         })    
                 if queryset.exists():
-                    mean_grade_data = MarksData.calculate_mean_grade(student, term=term_id)
+                    mean_grade_data = MarksData.calculate_mean_grade(
+                        student,
+                        term=term_id,
+                        exam_type=exam_type
+                     )
                     student_data = {
                         "student": StudentReportSerializer(student).data,
                         "overall_grading": mean_grade_data,

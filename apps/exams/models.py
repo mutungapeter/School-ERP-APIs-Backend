@@ -6,23 +6,29 @@ from apps.students.models import Student, StudentSubject
 import logging
 # Create your models here.
 class MarksData(models.Model):
+    MIDTERM = 'Midterm'
+    ENDTERM = 'Endterm'
+    QUIZ = 'Quiz'
+    PRACTICAL = 'Practical'
+
+    EXAM_TYPE_CHOICES = [
+        (MIDTERM, 'Midterm'),
+        (ENDTERM, 'Endterm'),
+        (QUIZ, 'Quiz'),
+        (PRACTICAL, 'Practical'),
+    ]
     student = models.ForeignKey(Student, on_delete=models.CASCADE)
     student_subject = models.ForeignKey(StudentSubject, on_delete=models.CASCADE)
     term = models.ForeignKey(Term, on_delete=models.CASCADE, null=True)
-    cat_mark = models.FloatField()
-    exam_mark = models.FloatField()
-    total_score = models.FloatField(editable=False) 
+    exam_type = models.CharField(max_length=20, choices=EXAM_TYPE_CHOICES)
+    total_score = models.FloatField()
     
     
     class Meta:
-        unique_together = ('student', 'student_subject', 'term') 
+        unique_together = ('student', 'student_subject', 'term', 'exam_type') 
         
     
-    def save(self, *args, **kwargs):  
-        self.total_score = self.cat_mark + self.exam_mark
-        super().save(*args, **kwargs)
     
-   
     
     def grade(self):
         subject_category = self.student_subject.subject.category
@@ -46,9 +52,11 @@ class MarksData(models.Model):
         
         ).first()
         if grade_config:
-            print(f"Points for {self.student_subject.subject.subject_name}: {grade_config.points}")
+            pass
+            # print(f"Points for {self.student_subject.subject.subject_name}: {grade_config.points}")
         else:
-            print(f"No grade config found for {self.student_subject.subject.subject_name}")
+            pass
+            # print(f"No grade config found for {self.student_subject.subject.subject_name}")
         return grade_config.points if grade_config else 0
     
     def remarks(self):
@@ -63,9 +71,12 @@ class MarksData(models.Model):
         return grade_config.remarks if grade_config else "No remarks"
     
     @classmethod
-    def calculate_mean_grade(cls, student, term):
-        all_marks = cls.objects.filter(student=student, term=term)
-        
+    def calculate_mean_grade(cls, student, term, exam_type=None):
+        filters = {'student': student, 'term': term}
+        if exam_type:
+            filters['exam_type'] = exam_type
+        # all_marks = cls.objects.filter(student=student, term=term)
+        all_marks = cls.objects.filter(**filters)
         english_mark = all_marks.filter(student_subject__subject__subject_name="English").first()
         kiswahili_mark = all_marks.filter(student_subject__subject__subject_name="Kiswahili").first()
 
@@ -122,16 +133,16 @@ class MarksData(models.Model):
 
         if mean_points is not None:
             mean_points = round(mean_points, 2)
-        print(f"Mean points: {mean_points}")
+        # print(f"Mean points: {mean_points}")
         mean_grade_config = MeanGradeConfig.objects.filter(
             Q(min_mean_points__lte=mean_points) &
             Q(max_mean_points__gte=mean_points)
         ).first()
 
-        if mean_grade_config:
-            print(f"Found grade config: {mean_grade_config.grade} for mean points: {mean_points}")
-        else:
-            print(f"No grade config found for mean points: {mean_points}")
+        # if mean_grade_config:
+        #     print(f"Found grade config: {mean_grade_config.grade} for mean points: {mean_points}")
+        # else:
+        #     print(f"No grade config found for mean points: {mean_points}")
 
         kcpe_average = student.kcpe_marks / 5 if student.kcpe_marks else 0
         if mean_grade_config:

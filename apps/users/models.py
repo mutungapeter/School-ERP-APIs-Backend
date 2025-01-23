@@ -18,7 +18,7 @@ class User(AbstractBaseModel, AbstractUser):
         ('Secretary', 'Secretary')
     ]
     
-    role = models.CharField(max_length=20, choices=ROLE_CHOICES, default='Teacher')
+    role = models.CharField(max_length=20, choices=ROLE_CHOICES, default='Admin')
     phone_number = models.CharField(max_length=15, blank=True, null=True)
     first_name = models.CharField(max_length=255)
     last_name = models.CharField(max_length=255)
