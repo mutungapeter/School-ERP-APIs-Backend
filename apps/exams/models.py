@@ -156,7 +156,8 @@ class MarksData(models.Model):
                 "total_points": total_points,  
                 "total_marks": total_marks,    
                 "grand_total": grand_total,
-                "kcpe_average": kcpe_average 
+                "kcpe_average": kcpe_average,
+                "exam_type": exam_type,
             }
         
         return {
@@ -168,6 +169,7 @@ class MarksData(models.Model):
             "total_points": 0,
             "total_marks": 0,
             "grand_total": 0,
-            "kcpe_average": kcpe_average
+            "kcpe_average": kcpe_average,
+            "exam_type": exam_type
             
         }
