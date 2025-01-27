@@ -40,14 +40,14 @@ class StudentListSerializer(serializers.ModelSerializer):
     class_level = ClassLevelListSerializer()
     class Meta:
         model = Student
-        fields = ['id', 'first_name', 'last_name','kcpe_marks', 'gender', 'admission_number',  'class_level', 'admission_type', 'subjects','status','created_at']
+        fields = ['id', 'first_name', 'last_name','kcpe_marks', 'gender', 'admission_number', 'current_term',  'class_level', 'admission_type', 'subjects','status','created_at']
     
 class StudentReportSerializer(serializers.ModelSerializer):
     
     class_level = ClassLevelListSerializer()
     class Meta:
         model = Student
-        fields = ['id', 'first_name', 'last_name','kcpe_marks', 'gender', 'admission_number',  'class_level', 'admission_type','created_at']
+        fields = ['id', 'first_name', 'last_name','kcpe_marks', 'gender', 'admission_number', 'current_term', 'class_level', 'admission_type','created_at']
     
 class PromoteStudentsSerializer(serializers.ModelSerializer):
     class Meta:

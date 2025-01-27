@@ -711,7 +711,7 @@ class PromoteStudentsToNextTermAPIView(APIView):
 
         try:
             class_level = ClassLevel.objects.get(id=class_level_id)
-            next_term = Term.objects.get(id=term_id, status="Upcoming")
+            next_term = Term.objects.get(id=term_id, status="Active")
         except ClassLevel.DoesNotExist:
             return Response(
                 {"error": "The specified class level does not exist."},
@@ -719,7 +719,7 @@ class PromoteStudentsToNextTermAPIView(APIView):
             )
         except Term.DoesNotExist:
             return Response(
-                {"error": "The specified term does not exist or is not 'Upcoming'."},
+                {"error": "The specified term is not 'Active' consider adjusting start dates and end dates to make it active."},
                 status=status.HTTP_404_NOT_FOUND,
             )
         students = Student.objects.filter(class_level=class_level, status="Active")

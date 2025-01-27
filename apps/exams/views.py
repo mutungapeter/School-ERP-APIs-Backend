@@ -575,6 +575,13 @@ class StudentPerformanceView(APIView):
 
     def get(self, request, pk):
         exam_type = request.query_params.get('exam_type')
+        calendar_year = request.query_params.get('calendar_year')
+        print("calendar_year", calendar_year)
+        if not exam_type:
+            return Response(
+                {"error": "Exam type is required for querying student performance data."},
+                status=status.HTTP_400_BAD_REQUEST
+            )
         try:
             
             student = Student.objects.get(pk=pk)
@@ -583,32 +590,52 @@ class StudentPerformanceView(APIView):
                 {"error": f"No student found with ID {pk}."},
                 status=status.HTTP_404_NOT_FOUND
             )
+        if calendar_year:
+            terms = Term.objects.filter(class_level__calendar_year=calendar_year)
+        else:
+            terms = Term.objects.filter(
+                class_level__calendar_year=student.class_level.calendar_year,
+                class_level=student.class_level
+            )
+            
+
+        # Check if no terms are found for the given calendar year
+        if not terms.exists():
+            return Response(
+                {"error": f"No performance data for student in this year {calendar_year}. Confirm whether the student was enrolled/promoted  in this year and did exams this year ."},
+                status=status.HTTP_404_NOT_FOUND
+            )
+        for x in terms:
+            print("x", x)
        
         students_data = []
-        current_term = student.current_term
-        term_id = current_term.id if current_term else None
+        # current_term = student.current_term
+        # term_id = current_term.id if current_term else None
        
-        if not term_id:
-            return Response(
-                {"error": "No current term associated with the student."},
-                status=status.HTTP_400_BAD_REQUEST
-            )
-        term = Term.objects.get(id=term_id)
+        # if not term_id:
+        #     return Response(
+        #         {"error": "No current term associated with the student."},
+        #         status=status.HTTP_400_BAD_REQUEST
+        #     )
+        # term = Term.objects.get(id=term_id)
+        # print("term", term)
         queryset = MarksData.objects.filter(
                 student_subject__student=student,
                 # student = student,
-                term__id=term_id,
+                # term__id=term_id,
+                term__in=terms ,
                 exam_type=exam_type
                 )
         first_marks_data = queryset.first()
         if not first_marks_data:
             return Response(
-                {"error": f"No marks data found for student {student.id} in term {term.id}."},
+                {"error": f"No marks data found for student {student.id} in given term."},
                 status=status.HTTP_404_NOT_FOUND
             )
         mean_grade_data = MarksData.calculate_mean_grade(
             student=first_marks_data.student,
-            term=term_id, 
+            # term=term_id, 
+            term=first_marks_data.term.id,
             exam_type=exam_type
             )
             
@@ -616,9 +643,19 @@ class StudentPerformanceView(APIView):
         mean_marks = []
 
         for class_student in students_in_class:
-            student_queryset = MarksData.objects.filter(student=class_student, exam_type=exam_type)
+            student_queryset = MarksData.objects.filter(
+                student=class_student,
+                exam_type=exam_type,
+                term__in=terms
+                
+            )
             if student_queryset:
-                mean_grade_class_student = MarksData.calculate_mean_grade(class_student, term=term_id, exam_type=exam_type)
+                mean_grade_class_student = MarksData.calculate_mean_grade(
+                    class_student, 
+                    # term=term_id, 
+                    term=first_marks_data.term.id,
+                    exam_type=exam_type
+                    )
                 mean_mark = mean_grade_class_student.get('mean_marks')
                 if mean_mark is not None:
                     mean_marks.append({
@@ -637,23 +674,39 @@ class StudentPerformanceView(APIView):
             if entry["student"] == student:
                 mean_grade_data["position"] = position
         term_data = []
-        # for x in Term.objects.filter(calendar_year=term.calendar_year):
-        for x in Term.objects.filter(class_level__calendar_year=term.class_level.calendar_year):
+        # terms = Term.objects.filter(
+        #     class_level__calendar_year=term.class_level.calendar_year,
+        #     class_level=student.class_level
+        # ).distinct()
+        # if calendar_year:
+        #     terms = Term.objects.filter(class_level__calendar_year=calendar_year)
+        # else:
+        #     terms = Term.objects.filter(class_level__calendar_year=term.class_level.calendar_year,
+        #     class_level=student.class_level
+        #     )
+        if not terms.exists():
+            return Response(
+                {"error": f"No terms found for the calendar year {calendar_year}."},
+                status=status.HTTP_404_NOT_FOUND
+            )
+        for x in terms:
             try:
                 m = MarksData.calculate_mean_grade(student, term=x.id, exam_type=exam_type)
-                # print("m", m)
-                term_data.append({
-                "term": f"{x.term} - {x.class_level.calendar_year}",
-                 "mean_marks": m["mean_marks"] if m["mean_marks"] is not None else 0,
-                 "exam_type": m["exam_type"] if m["exam_type"] is not None else "",
-                 })
+                if m and m["mean_marks"] is not None:
+                    if not any(td["term"] == f"{x.term} - {x.class_level.calendar_year}" for td in term_data):
+                        term_data.append({
+                            "term": f"{x.term} - {x.class_level.calendar_year}",
+                            "mean_marks": m["mean_marks"],
+                            "exam_type": m.get("exam_type", ""),
+                        })
             except Exception as e:
-                term_data.append({
-                    "term": f"{x.term} - {x.class_level.calendar_year}", 
-                    "mean_marks": 0,
-                    "exam_type": ""
-                    
-                })    
+                print(f"Error calculating mean grade for term {x.id}: {e}")
+
+        if not term_data:
+            return Response(
+                {"error": "No performance data found for the given student and calendar year."},
+                status=status.HTTP_404_NOT_FOUND
+            )
         student_data = term_data
         students_data.append(student_data)  
         if not queryset.exists():
@@ -668,6 +721,7 @@ class ClassPerformanceView(APIView):
 
     def get(self, request):
         class_level_id = request.query_params.get('class_level_id')
+        exam_type = request.query_params.get('exam_type')
         if not class_level_id:
             first_class_level = ClassLevel.objects.first()
             if not first_class_level:
@@ -679,7 +733,9 @@ class ClassPerformanceView(APIView):
             except ClassLevel.DoesNotExist:
                 return Response({"error": f"Class level with ID {class_level_id} does not exist."}, status=status.HTTP_404_NOT_FOUND)
 
-        
+        if not exam_type:
+            return Response({"error": "Exam type is required for querying class performance data."}, 
+            status=status.HTTP_400_BAD_REQUEST)
         term_id = request.query_params.get('term_id')
         if not term_id:
             current_term = Term.objects.filter(status='Active').first()
@@ -699,12 +755,12 @@ class ClassPerformanceView(APIView):
 
        
         for student in students_in_class:
-            marks_data = MarksData.objects.filter(student=student, term=term).all()
+            marks_data = MarksData.objects.filter(student=student, term=term, exam_type=exam_type).all()
             if not marks_data:
                 continue
 
             first_marks_data = marks_data.first()
-            mean_grade_data = MarksData.calculate_mean_grade(student=first_marks_data.student, term=first_marks_data.term.id)
+            mean_grade_data = MarksData.calculate_mean_grade(student=first_marks_data.student, term=first_marks_data.term.id, exam_type=exam_type)
 
             
             try:
@@ -721,7 +777,7 @@ class ClassPerformanceView(APIView):
         
         total_students = len(student_mean_grades)
         if total_students == 0:
-            return Response({"error": "No perfomance data found for the selected and  term."}, status=status.HTTP_400_BAD_REQUEST)
+            return Response({"error": "No perfomance data found for the selected and  term in the given class."}, status=status.HTTP_400_BAD_REQUEST)
 
         class_overall_mean = total_mean_marks / total_students if total_students > 0 else 0
 
@@ -733,7 +789,8 @@ class ClassPerformanceView(APIView):
 
        
         response_data = [
-            {"class_overall_mean_mark": round(class_overall_mean, 2)}
+            {"class_overall_mean_mark": round(class_overall_mean, 2)},
+            {"class_level": f"{class_level.name} - {class_level.calendar_year}"},
         ]
 
        
