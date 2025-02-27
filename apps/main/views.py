@@ -184,13 +184,35 @@ class SubjectCategoryAPIView(APIView):
             return Response(serializer.data)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
-    def delete(self, request, pk):
-        try:
-            subject_category = SubjectCategory.objects.get(pk=pk)
-        except SubjectCategory.DoesNotExist:
-            return Response(status=status.HTTP_404_NOT_FOUND)
-        subject_category.delete()
-        return Response(status=status.HTTP_204_NO_CONTENT)
+    def delete(self, request):
+        if not request.user.is_authenticated:
+            return Response(status=status.HTTP_401_UNAUTHORIZED)
+
+        if request.user.role not in ['Admin', 'Principal']:
+            return Response({"error": "You do not have permission to delete subjects."}, status=status.HTTP_403_FORBIDDEN)
+        
+        print(request.data)
+
+        # Extract category_ids from the request
+        category_ids = request.data if isinstance(request.data, list) else request.data.get('category_ids', [])
+        print("category_ids:", category_ids)
+
+        if not category_ids:
+            return Response({"error": "No categories selected for deletion."}, status=status.HTTP_400_BAD_REQUEST)
+
+        # Filter the categories based on the provided IDs
+        categories = SubjectCategory.objects.filter(id__in=category_ids)
+        categories_count = categories.count()
+        
+        if categories_count == 0:
+            return Response({"error": "No categories found with the provided IDs."}, status=status.HTTP_404_NOT_FOUND)
+
+        # Delete the categories
+        categories_deleted, _ = categories.delete()
+
+        return Response({"message": f"{categories_deleted} subject categories deleted successfully."}, status=status.HTTP_200_OK)
+
+
 
 class FormLevelAPIView(APIView):
     renderer_classes = [JSONRenderer, BrowsableAPIRenderer]
